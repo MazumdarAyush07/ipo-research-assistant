@@ -188,25 +188,25 @@ ipo-research/
 **Goal:** Freeze the data model — no fundamental schema changes after this.
 
 ## Tables to Create
-- [ ] `ipos` — name, sector, price_band_low, price_band_high, open_date, close_date, listing_date, status, source_url
-- [ ] `financials` — fk:ipo, year, revenue, pat, ebitda, total_assets, total_debt, equity
-- [ ] `valuation` — fk:ipo, issue_price, market_cap, pe_ratio, pb_ratio, ev_ebitda
-- [ ] `peer_companies` — fk:ipo, name, ticker, pe, pb, ev_ebitda, roe, market_cap
-- [ ] `subscription_data` — fk:ipo, category (QIB/NII/Retail/Employee), times_subscribed, recorded_at
-- [ ] `gmp_history` — fk:ipo, gmp_amount, premium_percent, recorded_at
-- [ ] `documents` — fk:ipo, type (DRHP/RHP/PROSPECTUS), file_path, downloaded_at, parsed_at
-- [ ] `ai_analysis` — fk:ipo, business_model, moat, promoter_risk, legal_cases, customer_concentration, debt_assessment, key_risks, red_flags, management_assumptions, industry_outlook, raw_json
-- [ ] `scores` — fk:ipo, financials_score, financials_reason, valuation_score, valuation_reason, promoter_score, promoter_reason, industry_score, industry_reason, risk_score, risk_reason, subscription_score, gmp_score, final_score, recommendation, scored_at
-- [ ] `ipo_outcomes` — fk:ipo, issue_price, listing_price, listing_return_pct, one_month_return_pct, six_month_return_pct, one_year_return_pct, our_score_at_listing
-- [ ] `reports` — fk:ipo, file_path, format (HTML/MD), generated_at
+- [x] `ipos` — name, sector, price_band_low, price_band_high, open_date, close_date, listing_date, status, source_url
+- [x] `financials` — fk:ipo, year, revenue, pat, ebitda, total_assets, total_debt, equity
+- [x] `valuation` — fk:ipo, issue_price, market_cap, pe_ratio, pb_ratio, ev_ebitda
+- [x] `peer_companies` — fk:ipo, name, ticker, pe, pb, ev_ebitda, roe, market_cap
+- [x] `subscription_data` — fk:ipo, category (QIB/NII/Retail/Employee), times_subscribed, recorded_at
+- [x] `gmp_history` — fk:ipo, gmp_amount, premium_percent, recorded_at
+- [x] `documents` — fk:ipo, type (DRHP/RHP/PROSPECTUS), file_path, downloaded_at, parsed_at
+- [x] `ai_analysis` — fk:ipo, business_model, moat, promoter_risk, legal_cases, customer_concentration, debt_assessment, key_risks, red_flags, management_assumptions, industry_outlook, raw_json
+- [x] `scores` — fk:ipo, financials_score, financials_reason, valuation_score, valuation_reason, promoter_score, promoter_reason, industry_score, industry_reason, risk_score, risk_reason, subscription_score, gmp_score, final_score, recommendation, scored_at
+- [x] `ipo_outcomes` — fk:ipo, issue_price, listing_price, listing_return_pct, one_month_return_pct, six_month_return_pct, one_year_return_pct, our_score_at_listing
+- [x] `reports` — fk:ipo, file_path, format (HTML/MD), generated_at
 
 > Note the `scores` table now carries a `*_reason` field for every component — this is how explainability is persisted. Note also `ipo_outcomes` — every IPO you analyze feeds the backtesting engine from day one.
 
 ## Deliverables
-- goose migration scripts from empty DB → full schema
-- Reverse migrations verified
-- Seed script: 2 sample IPOs with financials
-- `docs/schema.md` with ER diagram description
+- [x] goose migration scripts from empty DB → full schema
+- [x] Reverse migrations verified
+- [x] Seed script: 2 sample IPOs with financials
+- [x] `docs/schema.md` with ER diagram description
 
 ## Done when
 Migrations run clean from empty to full schema. Seed data loads without errors. Every entity from the architecture maps to at least one table.

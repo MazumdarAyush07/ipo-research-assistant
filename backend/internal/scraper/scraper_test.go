@@ -8,22 +8,31 @@ import (
 )
 
 func TestFetchUpcomingIPOs(t *testing.T) {
-	// Mock Chittorgarh HTML Response (matching ipo_dashboard.asp structure)
+	// Mock Chittorgarh HTML Response (matching the new report format)
 	mockHTML := `
 	<html>
 	<body>
 		<table class="table">
 			<tr>
 				<th>Company</th>
-				<th>Issue Date</th>
+				<th>Issue Category</th>
+				<th>Pricing Method</th>
+				<th>Opening Date</th>
+				<th>Closing Date</th>
 			</tr>
 			<tr>
 				<td>TechNova Solutions Ltd</td>
-				<td>10 - 12 Aug</td>
+				<td>Mainboard</td>
+				<td>Bookbuilding</td>
+				<td>10-Aug-2026</td>
+				<td>12-Aug-2026</td>
 			</tr>
 			<tr>
-				<td>GreenFuture Energy SME</td>
-				<td>01 - 03 Jul</td>
+				<td>GreenFuture Energy</td>
+				<td>SME</td>
+				<td>Bookbuilding</td>
+				<td>01-Jul-2026</td>
+				<td>03-Jul-2026</td>
 			</tr>
 		</table>
 	</body>
@@ -49,10 +58,13 @@ func TestFetchUpcomingIPOs(t *testing.T) {
 	if ipos[0].ExchangeType != "MAINBOARD" {
 		t.Errorf("Expected ExchangeType 'MAINBOARD', got %s", ipos[0].ExchangeType)
 	}
+	if ipos[0].OpenDate != "10-Aug-2026" {
+		t.Errorf("Expected OpenDate '10-Aug-2026', got %s", ipos[0].OpenDate)
+	}
 
 	// Verify SME Parsing
-	if ipos[1].Name != "GreenFuture Energy SME" {
-		t.Errorf("Expected name 'GreenFuture Energy SME', got %s", ipos[1].Name)
+	if ipos[1].Name != "GreenFuture Energy" {
+		t.Errorf("Expected name 'GreenFuture Energy', got %s", ipos[1].Name)
 	}
 	if ipos[1].ExchangeType != "SME" {
 		t.Errorf("Expected ExchangeType 'SME', got %s", ipos[1].ExchangeType)

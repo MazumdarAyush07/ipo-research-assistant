@@ -8,7 +8,7 @@ import (
 )
 
 func TestHandleSyncIPOsTask(t *testing.T) {
-	processor := NewProcessor(nil)
+	processor := NewProcessor(nil, nil)
 	
 	// Create a dummy task
 	task := asynq.NewTask(TaskSyncIPOs, nil)

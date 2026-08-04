@@ -35,7 +35,13 @@ func main() {
 	defer db.Close()
 
 	queries := models.New(db)
-	proc := worker.NewProcessor(queries)
+	
+	// Connect to local Redis for Asynq (default addr)
+	redisOpt := asynq.RedisClientOpt{Addr: "localhost:6379"}
+	client := asynq.NewClient(redisOpt)
+	defer client.Close()
+
+	proc := worker.NewProcessor(queries, client)
 
 	log.Println("Manually triggering IPO Sync Task...")
 	dummyTask := asynq.NewTask(worker.TaskSyncIPOs, nil)

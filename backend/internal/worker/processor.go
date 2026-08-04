@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"log"
 	"time"
 
@@ -12,11 +13,12 @@ import (
 )
 
 type Processor struct {
-	Queries *models.Queries
+	Queries     *models.Queries
+	AsynqClient *asynq.Client
 }
 
-func NewProcessor(q *models.Queries) *Processor {
-	return &Processor{Queries: q}
+func NewProcessor(q *models.Queries, client *asynq.Client) *Processor {
+	return &Processor{Queries: q, AsynqClient: client}
 }
 
 func (p *Processor) HandleSyncIPOsTask(ctx context.Context, t *asynq.Task) error {
@@ -55,19 +57,36 @@ func (p *Processor) HandleSyncIPOsTask(ctx context.Context, t *asynq.Task) error
 			}
 		}
 
+		var parsedSourceUrl sql.NullString
+		if ipo.SourceUrl != "" {
+			parsedSourceUrl = sql.NullString{String: ipo.SourceUrl, Valid: true}
+		}
+
 		// Insert new IPO
-		_, err = p.Queries.CreateIPO(ctx, models.CreateIPOParams{
+		insertedIPO, err := p.Queries.CreateIPO(ctx, models.CreateIPOParams{
 			Name:         ipo.Name,
 			ExchangeType: sql.NullString{String: ipo.ExchangeType, Valid: true},
 			OpenDate:     parsedOpenDate,
 			CloseDate:    parsedCloseDate,
 			Status:       sql.NullString{String: "UPCOMING", Valid: true},
+			SourceUrl:    parsedSourceUrl,
 		})
 		if err != nil {
 			log.Printf("Failed to insert IPO %s: %v", ipo.Name, err)
 			continue
 		}
 		insertedCount++
+
+		// Enqueue Document Download Task for the newly inserted IPO
+		if p.AsynqClient != nil {
+			payload, _ := json.Marshal(DownloadDocumentsPayload{IPOID: insertedIPO.ID})
+			task := asynq.NewTask(TaskDownloadDocuments, payload, asynq.MaxRetry(3))
+			if _, err := p.AsynqClient.Enqueue(task); err != nil {
+				log.Printf("Failed to enqueue download task for IPO %d: %v", insertedIPO.ID, err)
+			} else {
+				log.Printf("Enqueued download task for IPO %d", insertedIPO.ID)
+			}
+		}
 	}
 
 	log.Printf("Successfully inserted %d new IPOs", insertedCount)

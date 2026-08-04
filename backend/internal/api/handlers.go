@@ -3,15 +3,17 @@ package api
 import (
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/gofiber/fiber/v2"
+	"github.com/hibiken/asynq"
 )
 
 // IPOHandler holds dependencies for API routes
 type IPOHandler struct {
-	Queries *models.Queries
+	Queries     *models.Queries
+	AsynqClient *asynq.Client
 }
 
-func NewIPOHandler(q *models.Queries) *IPOHandler {
-	return &IPOHandler{Queries: q}
+func NewIPOHandler(q *models.Queries, client *asynq.Client) *IPOHandler {
+	return &IPOHandler{Queries: q, AsynqClient: client}
 }
 
 // ListIPOs handles GET /api/ipos

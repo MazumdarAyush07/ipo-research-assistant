@@ -242,14 +242,14 @@ Run the cron manually and it correctly identifies and inserts at least one upcom
 **Goal:** Automatically fetch DRHP, RHP, and Prospectus for every new IPO.
 
 ## Tasks
-- [ ] Go service: download PDFs from NSE/BSE/SEBI links
-- [ ] Save to `/storage/{company-slug}/{drhp|rhp|prospectus}.pdf`
-- [ ] Redis cache: skip re-download if file already exists
-- [ ] Update `documents` table: file_path, downloaded_at, status
-- [ ] Asynq worker: triggered automatically when new IPO is detected
-- [ ] Retry logic with exponential backoff (3 retries)
-- [ ] File size validation — alert if PDF < 100KB (likely a bad download)
-- [ ] `POST /api/ipos/:id/documents/trigger` — manual re-download trigger
+- [x] Go service: download PDFs from NSE/BSE/SEBI links
+- [x] Save to `/storage/{company-slug}/{drhp|rhp|prospectus}.pdf`
+- [x] Redis cache: skip re-download if file already exists
+- [x] Update `documents` table: file_path, downloaded_at, status
+- [x] Asynq worker: triggered automatically when new IPO is detected
+- [x] Retry logic with exponential backoff (3 retries)
+- [x] File size validation — alert if PDF < 100KB (likely a bad download)
+- [x] `POST /api/ipos/:id/documents/trigger` — manual re-download trigger
 
 ## Deliverables
 - `/storage/` directory populated with real DRHPs
@@ -605,10 +605,10 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 
 # Master Checklist (V1)
 
-- [ ] Project Foundation — `docker-compose up` works
-- [ ] Database Schema — migrations run clean, outcomes table included
-- [ ] IPO Calendar Monitor — auto-detects new IPOs
-- [ ] Document Downloader — DRHPs saved to storage
+- [x] Project Foundation — `docker-compose up` works
+- [x] Database Schema — migrations run clean, outcomes table included
+- [x] IPO Calendar Monitor — auto-detects new IPOs
+- [x] Document Downloader — DRHPs saved to storage
 - [ ] PDF Parser — structured financials extracted
 - [ ] Financial Metrics Calculator — all ratios computed and tested
 - [ ] Peer Comparison — valuation benchmarked against sector

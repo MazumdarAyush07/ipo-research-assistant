@@ -18,6 +18,7 @@ type ScrapedIPO struct {
 	ExchangeType string
 	OpenDate     string
 	CloseDate    string
+	SourceUrl    string
 }
 
 // IPOSource defines an interface for fetching IPOs
@@ -130,6 +131,7 @@ func parseHTMLTable(doc *goquery.Document) []ScrapedIPO {
 			// The report table has around 10 columns
 			if cols.Length() >= 5 {
 				name := strings.TrimSpace(cols.Eq(0).Text())
+				sourceUrl, _ := cols.Eq(0).Find("a").Attr("href")
 				exchangeType := strings.ToUpper(strings.TrimSpace(cols.Eq(1).Text()))
 				openDate := strings.TrimSpace(cols.Eq(3).Text())
 				closeDate := strings.TrimSpace(cols.Eq(4).Text())
@@ -143,6 +145,7 @@ func parseHTMLTable(doc *goquery.Document) []ScrapedIPO {
 					ExchangeType: exchangeType,
 					OpenDate:     openDate,
 					CloseDate:    closeDate,
+					SourceUrl:    sourceUrl,
 				})
 			}
 		})

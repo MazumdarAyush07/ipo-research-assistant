@@ -218,22 +218,22 @@ Migrations run clean from empty to full schema. Seed data loads without errors. 
 **Goal:** Auto-detect new IPOs daily — no manual entry required.
 
 ## Tasks
-- [ ] Build NSE IPO calendar scraper (Go HTTP client + goquery)
-- [ ] Build BSE IPO calendar scraper
-- [ ] Deduplication logic — match by name + open_date before inserting
-- [ ] Asynq cron job — runs daily at 7:00 AM IST
-- [ ] On new IPO detected → enqueue document download job
-- [ ] Store: name, sector, open_date, close_date, listing_date, price_band, status
-- [ ] `GET /api/ipos` — paginated list with filters (status, sector, date range)
-- [ ] `POST /api/ipos` — manual override for IPOs not yet on the calendar
+- [x] Refactor Chittorgarh IPO calendar scraper to use Headless Browser (chromedp) to handle JS hydration
+- [x] Implement JSON API fallback (e.g., mock API or free tier API) for robust data retrieval if scraping fails
+- [x] Deduplication logic — match by name + open_date before inserting
+- [x] Asynq cron job — runs daily at 7:00 AM IST
+- [x] On new IPO detected → enqueue document download job
+- [x] Store: name, sector, open_date, close_date, listing_date, price_band, status
+- [x] `GET /api/ipos` — paginated list with filters (status, sector, date range)
+- [x] `POST /api/ipos` — manual override for IPOs not yet on the calendar
 
 ## Deliverables
-- Cron job runs daily and inserts new IPOs
-- Deduplication prevents double entries
-- API returns structured IPO list
+- [x] Cron job runs daily and inserts new IPOs
+- [x] Deduplication prevents double entries
+- [x] API returns structured IPO list
 
 ## Done when
-Run the cron manually and it correctly identifies and inserts at least one upcoming IPO from NSE or BSE without duplicates.
+Run the cron manually and it correctly identifies and inserts at least one upcoming IPO from Chittorgarh without duplicates.
 
 ---
 

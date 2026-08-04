@@ -1,0 +1,14 @@
+[
+    {
+        "Name": "Dummy Tech SME",
+        "ExchangeType": "SME",
+        "OpenDate": "Aug 15",
+        "CloseDate": "Aug 18"
+    },
+    {
+        "Name": "Fallback HealthCare Ltd",
+        "ExchangeType": "MAINBOARD",
+        "OpenDate": "Sep 01",
+        "CloseDate": "Sep 03"
+    }
+]

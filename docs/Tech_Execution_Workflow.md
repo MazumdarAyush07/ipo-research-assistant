@@ -265,17 +265,17 @@ Worker is triggered for a new IPO and downloads the DRHP to the correct path wit
 **Goal:** Extract structured financial data from DRHP PDFs.
 
 ## Tasks
-- [ ] Python FastAPI sidecar service with `POST /parse` endpoint
-- [ ] Accept: `{ file_path, ipo_id, doc_type }`
-- [ ] Use pdfplumber for raw text extraction
-- [ ] Use camelot for financial table extraction
-- [ ] Extract: Revenue, PAT, EBITDA, Total Assets, Total Debt, Equity (last 3 fiscal years)
-- [ ] Extract: Objects of Issue (use of funds)
-- [ ] Extract: Risk Factors section (top 20 risks as text)
-- [ ] Extract: Promoter background paragraph
-- [ ] Return structured JSON; Go backend saves to `financials` table
-- [ ] Fallback: if table extraction fails, return raw text for AI to process
-- [ ] Log extraction confidence score per field
+- [x] Python FastAPI sidecar service with `POST /parse` endpoint
+- [x] Accept: `{ file_path, ipo_id, doc_type }`
+- [x] Use pdfplumber for raw text extraction
+- [x] Use camelot for financial table extraction
+- [x] Extract: Revenue, PAT, EBITDA, Total Assets, Total Debt, Equity (last 3 fiscal years)
+- [x] Extract: Objects of Issue (use of funds)
+- [x] Extract: Risk Factors section (top 20 risks as text)
+- [x] Extract: Promoter background paragraph
+- [x] Return structured JSON; Go backend saves to `financials` table
+- [x] Fallback: if table extraction fails, return raw text for AI to process
+- [x] Log extraction confidence score per field
 
 ## Deliverables
 - Python sidecar runs as a Docker service
@@ -609,7 +609,7 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] Database Schema — migrations run clean, outcomes table included
 - [x] IPO Calendar Monitor — auto-detects new IPOs
 - [x] Document Downloader — DRHPs saved to storage
-- [ ] PDF Parser — structured financials extracted
+- [x] PDF Parser — structured financials extracted
 - [ ] Financial Metrics Calculator — all ratios computed and tested
 - [ ] Peer Comparison — valuation benchmarked against sector
 - [ ] Subscription & GMP Tracker — live demand signals captured

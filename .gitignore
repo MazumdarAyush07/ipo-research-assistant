@@ -1,5 +1,7 @@
 # Go
 backend/main
+backend/server
+backend/worker
 backend/bin/
 backend/.env
 
@@ -11,7 +13,8 @@ frontend/.env
 frontend/.env.local
 
 # Python
-pdf-parser/__pycache__/
+__pycache__/
+*.py[cod]
 pdf-parser/.venv/
 pdf-parser/venv/
 

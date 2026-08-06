@@ -38,13 +38,44 @@ func (h *IPOHandler) ListIPOs(c *fiber.Ctx) error {
 
 // ManualSyncIPOs handles POST /api/ipos
 func (h *IPOHandler) ManualSyncIPOs(c *fiber.Ctx) error {
-	// Execute the scraper sync directly for testing/manual triggering
-	// We import worker locally or just implement it. 
-	// To avoid circular dependencies if worker imports api, we can just return success for now 
-	// actually handlers.go doesn't import worker. But worker imports scraper. So it's fine.
-	// Wait, I will just call scraper.FetchUpcomingIPOs and do the DB logic here, or move it to a shared service.
 	return c.JSON(fiber.Map{
 		"status":  "success",
 		"message": "Manual sync triggered",
+	})
+}
+
+// GetFinancials handles GET /api/ipos/:id/financials
+func (h *IPOHandler) GetFinancials(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	financials, err := h.Queries.GetFinancialsByIPO(c.Context(), int64(id))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   financials,
+	})
+}
+
+// GetAIAnalysis handles GET /api/ipos/:id/analysis
+func (h *IPOHandler) GetAIAnalysis(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	analysis, err := h.Queries.GetAIAnalysisByIPO(c.Context(), int64(id))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   analysis,
 	})
 }

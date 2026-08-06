@@ -11,11 +11,36 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis:6379
+      - PDF_PARSER_URL=http://pdf-parser:8000
     depends_on:
       - redis
     volumes:
       - ./backend:/app
+      - ./storage:/storage
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/worker"]
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_PORT=${DB_PORT}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis:6379
+      - PDF_PARSER_URL=http://pdf-parser:8000
+    depends_on:
+      - redis
+      - backend
+      - pdf-parser
+    volumes:
+      - ./backend:/app
+      - ./storage:/storage
 
   pdf-parser:
     build:
@@ -25,6 +50,7 @@ services:
       - "8000:8000"
     volumes:
       - ./pdf-parser:/app
+      - ./storage:/storage
 
   frontend:
     build:
@@ -42,3 +68,6 @@ services:
     image: redis:7
     ports:
       - "6379:6379"
+
+volumes:
+  storage_data:

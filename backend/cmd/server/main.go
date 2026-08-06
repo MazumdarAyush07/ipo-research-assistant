@@ -1,12 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"os"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/api"
+	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 )
 
@@ -29,10 +32,29 @@ func main() {
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
 	defer asynqClient.Close()
 
+	// DB Connection
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatal("DATABASE_URL is not set")
+	}
+
+	db, err := sql.Open("pgx", dbURL)
+	if err != nil {
+		log.Fatalf("failed to open db: %v", err)
+	}
+
+	queries := models.New(db)
+
 	// Setup API handlers
-	ipoHandler := api.NewIPOHandler(nil, asynqClient)
+	ipoHandler := api.NewIPOHandler(queries, asynqClient)
+	// Register Routes
 	app.Get("/api/ipos", ipoHandler.ListIPOs)
 	app.Post("/api/ipos", ipoHandler.ManualSyncIPOs)
+	
+	app.Get("/api/ipos/:id/financials", ipoHandler.GetFinancials)
+	app.Get("/api/ipos/:id/analysis", ipoHandler.GetAIAnalysis)
+
+	// Document endpoints
 	app.Post("/api/ipos/:id/documents/trigger", ipoHandler.TriggerDocumentDownload)
 
 	log.Fatal(app.Listen(":8080"))

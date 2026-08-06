@@ -1,5 +1,3 @@
-//go:build ignore
-
 package main
 
 import (
@@ -30,7 +28,16 @@ func main() {
 	queries := models.New(db)
 
 	// Setup Asynq Worker Server
-	redisOpt := asynq.RedisClientOpt{Addr: "localhost:6379"}
+	redisAddr := os.Getenv("REDIS_URL")
+	if redisAddr == "" {
+		redisAddr = "127.0.0.1:6379"
+	}
+	
+	// Create an Asynq client so the worker can enqueue child tasks
+	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
+	defer client.Close()
+
+	redisOpt := asynq.RedisClientOpt{Addr: redisAddr}
 	srv := asynq.NewServer(
 		redisOpt,
 		asynq.Config{
@@ -40,9 +47,10 @@ func main() {
 
 	// Register Handlers
 	mux := asynq.NewServeMux()
-	proc := worker.NewProcessor(queries, nil) // AsynqClient is nil for the worker itself since it doesn't enqueue tasks
+	proc := worker.NewProcessor(queries, client)
 
 	mux.HandleFunc(worker.TaskDownloadDocuments, proc.HandleDownloadDocumentsTask)
+	mux.HandleFunc(worker.TaskParseDocument, proc.ProcessTaskParseDocument)
 
 	log.Println("Starting Asynq Worker Server...")
 	if err := srv.Run(mux); err != nil {

@@ -71,7 +71,19 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 		log.Printf("Failed to record document in DB for %s: %v", ipo.Name, err)
 	}
 
-	log.Printf("Successfully processed documents for IPO: %s", ipo.Name)
+	log.Printf("Successfully downloaded DRHP for IPO ID: %d", payload.IPOID)
+
+	// Now enqueue the parsing job for this document
+	parsePayload, _ := json.Marshal(ParseDocumentPayload{
+		IPOID:    payload.IPOID,
+		FilePath: destPath,
+	})
+	parseTask := asynq.NewTask(TaskParseDocument, parsePayload, asynq.MaxRetry(3))
+
+	if _, err := p.AsynqClient.Enqueue(parseTask); err != nil {
+		log.Printf("Failed to enqueue parse task for IPO %d: %v", payload.IPOID, err)
+	}
+
 	return nil
 }
 

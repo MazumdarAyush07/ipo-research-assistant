@@ -2,10 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies required by camelot and pdfplumber
+# Install OS dependencies if needed
 RUN apt-get update && apt-get install -y \
-    ghostscript \
-    python3-tk \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

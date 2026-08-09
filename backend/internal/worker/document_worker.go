@@ -1,11 +1,14 @@
 package worker
 
 import (
+	"archive/zip"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,12 +55,47 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 	}
 
 	destPath := filepath.Join("../storage", slug, "drhp.pdf")
+	
+	// PRE-CLEANUP: If a corrupted file exists, delete it so we force a fresh download
+	if info, err := os.Stat(destPath); err == nil && info.Size() > 0 {
+		if !isValidPDF(destPath) && !isZipFile(destPath) {
+			log.Printf("Existing file %s is corrupted (neither PDF nor ZIP). Deleting it...", destPath)
+			os.Remove(destPath)
+		}
+	}
+
 	log.Printf("Downloading DRHP to %s", destPath)
 
-	// Download PDF (require at least 100KB)
+	// Download PDF or ZIP (require at least 100KB)
 	err = downloader.DownloadPDF(drhpUrl, destPath, 100*1024)
 	if err != nil {
 		return fmt.Errorf("failed to download DRHP for %s: %v", ipo.Name, err)
+	}
+
+	// POST-VALIDATION: Check if what we downloaded is actually valid
+	if !isValidPDF(destPath) && !isZipFile(destPath) {
+		os.Remove(destPath)
+		return fmt.Errorf("downloaded file is neither a valid PDF nor a ZIP archive")
+	}
+
+	// Bulletproof check: Does the file start with ZIP magic bytes?
+	if isZipFile(destPath) {
+		log.Printf("File is actually a ZIP archive. Extracting PDF...")
+		tempZipPath := filepath.Join("../storage", slug, "temp_drhp.zip")
+		
+		// Rename the downloaded file to a temp zip
+		if err := os.Rename(destPath, tempZipPath); err != nil {
+			return fmt.Errorf("failed to rename zip file: %v", err)
+		}
+		
+		// Extract the largest PDF from the zip into destPath (drhp.pdf)
+		err = extractLargestPDFFromZip(tempZipPath, destPath)
+		if err != nil {
+			return fmt.Errorf("failed to extract PDF from zip: %v", err)
+		}
+		
+		// Cleanup the temp zip
+		os.Remove(tempZipPath)
 	}
 
 	// Insert record into documents table
@@ -161,4 +199,73 @@ func extractSebiPDF(url string) (string, error) {
 	}
 
 	return pdfUrl, nil
+}
+
+// extractLargestPDFFromZip opens a zip archive, finds the largest .pdf file, and extracts it to destPdfPath
+func extractLargestPDFFromZip(zipPath string, destPdfPath string) error {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	var largestFile *zip.File
+	var maxSize uint64 = 0
+
+	for _, f := range r.File {
+		if strings.HasSuffix(strings.ToLower(f.Name), ".pdf") {
+			if f.UncompressedSize64 > maxSize {
+				maxSize = f.UncompressedSize64
+				largestFile = f
+			}
+		}
+	}
+
+	if largestFile == nil {
+		return fmt.Errorf("no PDF found inside zip")
+	}
+
+	rc, err := largestFile.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	out, err := os.Create(destPdfPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, rc)
+	return err
+}
+
+// isZipFile checks if a file starts with the ZIP magic bytes "PK\x03\x04"
+func isZipFile(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	buf := make([]byte, 4)
+	if _, err := f.Read(buf); err != nil {
+		return false
+	}
+	return string(buf) == "PK\x03\x04"
+}
+
+// isValidPDF checks if a file contains the PDF magic bytes "%PDF-" within the first 512 bytes
+func isValidPDF(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	buf := make([]byte, 512)
+	n, err := f.Read(buf)
+	if err != nil && err != io.EOF {
+		return false
+	}
+	return strings.Contains(string(buf[:n]), "%PDF-")
 }

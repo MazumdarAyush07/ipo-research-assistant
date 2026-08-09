@@ -41,7 +41,13 @@ func main() {
 	srv := asynq.NewServer(
 		redisOpt,
 		asynq.Config{
-			Concurrency: 10,
+			// Concurrency is set to 1 to avoid overwhelming the pdf-parser (OOM crashes)
+			Concurrency: 1,
+			Queues: map[string]int{
+				"critical": 6,
+				"default":  3,
+				"low":      1,
+			},
 		},
 	)
 

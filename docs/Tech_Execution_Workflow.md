@@ -67,7 +67,7 @@ The AI supports your decision — it does not replace it.
 | Cache | Redis | Avoid re-downloading the same DRHP or re-calling AI |
 | Task Queue | Asynq (Redis-backed) | Async PDF parsing and report generation jobs |
 | Frontend | Next.js 14 (App Router) | React Server Components + Tailwind for the dashboard |
-| PDF Parsing | Python sidecar | pdfplumber / camelot for table extraction (Go bindings are weak here) |
+| PDF Parsing | Python sidecar | pdfplumber for raw text + Gemini AI for strict JSON extraction (Camelot deprecated) |
 | AI | Claude API (Sonnet) | DRHP analysis, risk extraction, explainable recommendations |
 | Storage | Local FS | DRHPs and generated reports — S3 in V2 |
 | Deployment | Docker Compose (local) | One-command dev; cloud lift deferred to V2 |
@@ -106,13 +106,13 @@ Download DRHP    Fetch Market Data    Fetch Peer Data
 
 The phases below map to three outcome-driven milestones. Use these to track meaningful progress.
 
-**Milestone 1 — Data Engine** *(Phases 1–5)*
+**Milestone 1 — Data Engine** *(Phases 1–6)*
 > "I can collect and parse IPO data automatically."
 
-**Milestone 2 — Intelligence Engine** *(Phases 6–10)*
+**Milestone 2 — Intelligence Engine** *(Phases 7–11)*
 > "I can evaluate an IPO in under 10 minutes with explainable scores."
 
-**Milestone 3 — Decision Engine** *(Phases 11–13)*
+**Milestone 3 — Decision Engine** *(Phases 12–14)*
 > "I know which IPO strategy actually works for me."
 
 ---
@@ -267,14 +267,13 @@ Worker is triggered for a new IPO and downloads the DRHP to the correct path wit
 ## Tasks
 - [x] Python FastAPI sidecar service with `POST /parse` endpoint
 - [x] Accept: `{ file_path, ipo_id, doc_type }`
-- [x] Use pdfplumber for raw text extraction
-- [x] Use camelot for financial table extraction
+- [x] Use pdfplumber for raw text extraction of financial pages
+- [x] Use Gemini AI (Structured Outputs) for flawless extraction of financial tables from raw text
 - [x] Extract: Revenue, PAT, EBITDA, Total Assets, Total Debt, Equity (last 3 fiscal years)
 - [x] Extract: Objects of Issue (use of funds)
 - [x] Extract: Risk Factors section (top 20 risks as text)
 - [x] Extract: Promoter background paragraph
 - [x] Return structured JSON; Go backend saves to `financials` table
-- [x] Fallback: if table extraction fails, return raw text for AI to process
 - [x] Log extraction confidence score per field
 
 ## Deliverables
@@ -287,11 +286,61 @@ Feed a real DRHP PDF and receive correctly structured revenue, PAT, and debt fig
 
 ---
 
+# Phase 6 — Download Hardening
+
+**Goal:** Guarantee that what lands in `/storage/` is always the correct, complete, parseable prospectus document for the IPO.
+
+> Note: RHP and DRHP are used interchangeably throughout this codebase and documentation. No distinction is made between them — both are the main prospectus document for an IPO.
+
+## Why This Matters
+
+The downloader currently finds the first PDF-looking link on the IPO page and downloads it. This causes real problems in practice:
+- Some files are **HTML pages pretending to be PDFs** (SEBI's filing portal does this — returns a redirect page, not a binary PDF)
+- Some downloads are **incomplete** (Unexpected EOF — the file cuts off mid-page due to network interruption or a bad source URL)
+- Some ZIPs contain **multiple PDFs** and we extract the wrong one (e.g. a GID form or checklist instead of the main prospectus)
+- The link picker can grab an **Addendum**, **Corrigendum**, or **Pre-IPO placement circular** instead of the main prospectus
+
+## Tasks
+
+### Link Quality & Priority
+- [ ] Skip links whose anchor text contains: `addendum`, `corrigendum`, `placement`, `gid`, `abridged`, `notice`, `checklist`
+- [ ] Detect when a SEBI "HTML filing" link serves a redirect page instead of a PDF — follow the redirect chain to the actual PDF binary
+- [ ] Log which link was selected and why — one structured log line per download decision
+
+### File Integrity Validation
+- [ ] Validate PDF magic bytes (`%PDF-`) within the first 512 bytes immediately after download
+- [ ] Validate the PDF is not truncated: open with pdfplumber and confirm `len(pdf.pages) > 50` — a real prospectus is always well over 50 pages
+- [ ] Check file size: flag any file under 500KB as suspect (real prospectus documents are typically 5–50MB)
+- [ ] On any integrity failure: delete the bad file, log the reason, and re-enqueue with a 60-second delay (up to 3 retries before marking as `failed`)
+
+### ZIP Handling
+- [ ] When a ZIP is downloaded, extract all contained PDFs and rank them by file size — the largest PDF is almost always the main prospectus
+- [ ] Discard any extracted file whose name contains: `gid`, `form`, `checklist`, `certificate`, `notice`
+- [ ] If multiple large PDFs remain after filtering, pick the one with the highest page count
+
+### Audit Script
+- [ ] `scripts/audit_downloads.py` — run after `batch_trigger.py` and report:
+  - Total downloaded / total expected
+  - Files with Unexpected EOF
+  - Files below 500KB
+  - Files below 50 pages
+  - Files that failed all retries
+
+## Deliverables
+- Download log includes link selection rationale for every IPO
+- Every file in `/storage/` passes page count and size checks
+- `audit_downloads.py` produces a clean summary with zero integrity failures
+
+## Done when
+Run `audit_downloads.py` against all current IPOs — every file passes the page count (> 50) and size (> 500KB) checks, and no IPO shows "Unexpected EOF".
+
+
+
 # — MILESTONE 2: INTELLIGENCE ENGINE —
 
 ---
 
-# Phase 6 — Financial Metrics Calculator
+# Phase 7 — Financial Metrics Calculator
 
 **Goal:** Compute all key ratios automatically from extracted data.
 
@@ -319,7 +368,7 @@ Unit tests pass for all financial formulas. API returns correct metrics for seed
 
 ---
 
-# Phase 7 — Peer Comparison
+# Phase 8 — Peer Comparison
 
 **Goal:** Benchmark IPO valuation against listed sector peers.
 
@@ -342,7 +391,7 @@ For a hospital-sector IPO, the API returns Apollo, Max, Fortis, Narayana with cu
 
 ---
 
-# Phase 8 — Subscription & GMP Tracker
+# Phase 9 — Subscription & GMP Tracker
 
 **Goal:** Track live demand signals during the IPO window.
 
@@ -368,7 +417,7 @@ During an active IPO, the subscription endpoint returns at least 3 data points a
 
 ---
 
-# Phase 9 — AI Document Analyzer
+# Phase 10 — AI Document Analyzer
 
 **Goal:** Make Claude think like an analyst, not a summarizer.
 
@@ -418,7 +467,7 @@ Feed a real DRHP and receive a valid JSON with all fields populated, including a
 
 ---
 
-# Phase 10 — Explainable Scoring Engine
+# Phase 11 — Explainable Scoring Engine
 
 **Goal:** Every score must explain itself. A number you can't understand is a number you won't trust.
 
@@ -476,7 +525,9 @@ Reason: PE of 45x vs peer median 31x — 45% premium.
 
 ---
 
-# Phase 11 — HTML Report Generator
+# Phase 12 — HTML Report Generator
+
+---
 
 **Goal:** Auto-produce a shareable research report for every IPO. HTML only in V1 — fast to generate, readable in any browser.
 
@@ -519,7 +570,7 @@ AI Analyst Summary: [Claude-generated paragraph]
 
 ---
 
-# Phase 12 — Next.js Dashboard
+# Phase 13 — Next.js Dashboard
 
 **Goal:** Visual interface — build this only after all APIs exist.
 
@@ -544,7 +595,7 @@ All API endpoints are consumed. A full IPO's data is visible end-to-end in the b
 
 ---
 
-# Phase 13 — Backtesting Engine
+# Phase 14 — Backtesting Engine
 
 **Goal:** Validate your scoring model against historical IPOs. Without this, your score is an opinion. With this, it's evidence.
 
@@ -567,7 +618,7 @@ Backtest runs on 50+ historical IPOs and produces a correlation table between ea
 
 ---
 
-# Phase 14 — Complete API Layer
+# Phase 15 — Complete API Layer
 
 **Goal:** Wire everything into a clean, documented REST API before V2 work begins.
 
@@ -610,6 +661,7 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] IPO Calendar Monitor — auto-detects new IPOs
 - [x] Document Downloader — DRHPs saved to storage
 - [x] PDF Parser — structured financials extracted
+- [ ] Download Hardening — every file in storage confirmed complete and parseable
 - [ ] Financial Metrics Calculator — all ratios computed and tested
 - [ ] Peer Comparison — valuation benchmarked against sector
 - [ ] Subscription & GMP Tracker — live demand signals captured

@@ -56,6 +56,7 @@ func main() {
 
 	// Document endpoints
 	app.Post("/api/ipos/:id/documents/trigger", ipoHandler.TriggerDocumentDownload)
+	app.Post("/api/ipos/:id/parse/trigger", ipoHandler.TriggerDocumentParse)
 
 	log.Fatal(app.Listen(":8080"))
 }

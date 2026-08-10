@@ -29,7 +29,7 @@ class FinancialData(BaseModel):
 class FinancialResponse(BaseModel):
     data: list[FinancialData] = Field(description="List of financial data for the last 3 years")
 
-def _ai_fallback(raw_text: str) -> List[Dict[str, Any]]:
+def _ai_fallback(raw_text: str, force_model: str = None) -> List[Dict[str, Any]]:
     """
     Sends the raw text to Gemini and asks for a structured JSON extraction of the financial metrics.
     Includes rate-limit-aware retry with exponential backoff.
@@ -45,17 +45,23 @@ def _ai_fallback(raw_text: str) -> List[Dict[str, Any]]:
     Ensure all values are extracted as simple floating point numbers (e.g. 1500.50). 
     IMPORTANT: Make sure you use the actual financial amounts, NOT the calendar years (do not extract '2024' as the revenue).
     Look out for synonyms:
+    - pat could be "Profit for the year", "Profit/(Loss) for the period", "Restated Profit After Tax"
     - total_debt could be "Borrowings", "Financial Liabilities"
     - equity could be "Net Worth", "Share Capital" + "Reserves", "Total Equity"
     - total_assets could be "Total Assets", "Net Block"
     
+    NOTE: The text might be scrambled or space-separated because it's extracted from a PDF. Reconstruct the columns mentally.
+    
     The JSON fields must be: year, revenue, pat, ebitda, total_assets, total_debt, equity.
     
     RAW TEXT TO ANALYZE:
-    {raw_text[:8000]}  # Limit token size for cost efficiency
+    {raw_text[:100000]}
     """
     
-    model_name = os.environ.get('GEMINI_MODEL', 'gemini-3.1-flash-lite')
+    if force_model:
+        model_name = force_model
+    else:
+        model_name = os.environ.get('GEMINI_MODEL', 'gemini-3.1-flash-lite')
     
     # Rate-limit-aware retry with exponential backoff
     max_retries = 4
@@ -69,6 +75,7 @@ def _ai_fallback(raw_text: str) -> List[Dict[str, Any]]:
                 config={
                     'response_mime_type': 'application/json',
                     'response_schema': FinancialResponse,
+                    'temperature': 0.0,
                 },
             )
             
@@ -79,7 +86,7 @@ def _ai_fallback(raw_text: str) -> List[Dict[str, Any]]:
                 return []
                 
         except genai_errors.ClientError as e:
-            if e.status_code == 429:
+            if "429" in str(e):
                 # Extract retry delay from error if available, otherwise use exponential backoff
                 delay = base_delay * (2 ** attempt)
                 logger.warning(
@@ -102,23 +109,41 @@ def parse_financials(file_path: str) -> List[Dict[str, Any]]:
     Finds the financial pages, extracts the text, and calls Gemini for structured extraction.
     Returns a list of dicts: [{'year': 2023, 'revenue': 100, ...}]
     """
-    keywords = [
-        "restated consolidated statement of profit and loss",
-        "restated consolidated statement of assets and liabilities",
-        "restated statement of profit and loss",
-        "restated statement of assets and liabilities",
-        "restated cash flow statement"
-    ]
+    keyword_weights = {
+        # Table titles (high recall, high weight)
+        "statement of profit and loss": 3,
+        "statement of assets and liabilities": 3,
+        "cash flow statement": 3,
+        "annexure i": 3,
+        "annexure ii": 3,
+        "annexure iii": 3,
+        "annexure iv": 3,
+        "particulars": 3,
+        
+        # Row headers (high precision/density, standard weight)
+        "total assets": 1,
+        "total equity and liabilities": 1,
+        "total equity": 1,
+        "total liabilities": 1,
+        "total income": 1,
+        "revenue from operations": 1,
+        "profit for the year": 1,
+        "profit for the period": 1,
+        "profit/(loss) for the year": 1,
+        "profit before tax": 1,
+        "cash flows from operating activities": 1,
+        "net cash from operating activities": 1
+    }
     
-    pages = find_pages_with_keywords(file_path, keywords)
+    pages = find_pages_with_keywords(file_path, keyword_weights)
     if not pages:
         return []
     
-    logger.info(f"Found financial keywords on pages: {pages[:5]}")
+    logger.info(f"Found financial keywords on pages: {pages[:15]}")
     
     # Extract raw text from those specific pages
     raw_text = ""
-    for p in pages[:5]:
+    for p in pages[:15]:
         raw_text += extract_text_from_pages(file_path, p, 1) + "\n"
         
     if not raw_text.strip():
@@ -128,4 +153,21 @@ def parse_financials(file_path: str) -> List[Dict[str, Any]]:
     time.sleep(2)
     
     logger.info("Sending text to Gemini AI for extraction...")
-    return _ai_fallback(raw_text)
+    results = _ai_fallback(raw_text, force_model="gemini-3.1-flash-lite")
+    
+    needs_fallback = False
+    if not results:
+        needs_fallback = True
+    else:
+        for row in results:
+            if row.get('revenue', 0) == 0.0 or row.get('pat', 0) == 0.0 or row.get('ebitda', 0) == 0.0 or \
+               row.get('total_assets', 0) == 0.0 or row.get('equity', 0) == 0.0:
+                needs_fallback = True
+                break
+                
+    if needs_fallback:
+        logger.warning("Missing critical metrics detected (0.0). Escalating to gemini-3.5-flash...")
+        time.sleep(2)
+        results = _ai_fallback(raw_text, force_model="gemini-3.5-flash")
+        
+    return results

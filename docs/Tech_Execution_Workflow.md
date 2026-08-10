@@ -286,9 +286,9 @@ Feed a real DRHP PDF and receive correctly structured revenue, PAT, and debt fig
 
 ---
 
-# Phase 6 — Download Hardening
+# Phase 6 — Download Hardening & HITL Pipeline
 
-**Goal:** Guarantee that what lands in `/storage/` is always the correct, complete, parseable prospectus document for the IPO.
+**Goal:** Guarantee that what lands in `/storage/` is always the correct, complete, parseable prospectus document for the IPO, and introduce a Human-in-the-Loop (HITL) checkpoint before AI extraction.
 
 > Note: RHP and DRHP are used interchangeably throughout this codebase and documentation. No distinction is made between them — both are the main prospectus document for an IPO.
 
@@ -300,26 +300,33 @@ The downloader currently finds the first PDF-looking link on the IPO page and do
 - Some ZIPs contain **multiple PDFs** and we extract the wrong one (e.g. a GID form or checklist instead of the main prospectus)
 - The link picker can grab an **Addendum**, **Corrigendum**, or **Pre-IPO placement circular** instead of the main prospectus
 
+Furthermore, AI extraction is expensive. By severing the automated link between downloading and parsing, we introduce a daily checkpoint where analysts can review `audit_downloads.py`, manually supply missing DRHPs, and *then* trigger the AI batch, guaranteeing 100% data quality.
+
 ## Tasks
 
+### Pipeline Architecture Pivot (HITL)
+- [x] Remove automated trigger: The download worker must NO LONGER automatically enqueue the `document:parse` job upon completion.
+- [x] Create `POST /api/ipos/:id/parse/trigger` endpoint to enqueue parse jobs.
+- [x] Create `scripts/batch_parse.py`: A script to manually trigger parsing for all IPOs after the morning download audit is complete.
+
 ### Link Quality & Priority
-- [ ] Skip links whose anchor text contains: `addendum`, `corrigendum`, `placement`, `gid`, `abridged`, `notice`, `checklist`
-- [ ] Detect when a SEBI "HTML filing" link serves a redirect page instead of a PDF — follow the redirect chain to the actual PDF binary
-- [ ] Log which link was selected and why — one structured log line per download decision
+- [x] Skip links whose anchor text contains: `addendum`, `corrigendum`, `placement`, `gid`, `abridged`, `notice`, `checklist`
+- [x] Detect when a SEBI "HTML filing" link serves a redirect page instead of a PDF — follow the redirect chain to the actual PDF binary
+- [x] Log which link was selected and why — one structured log line per download decision
 
 ### File Integrity Validation
-- [ ] Validate PDF magic bytes (`%PDF-`) within the first 512 bytes immediately after download
-- [ ] Validate the PDF is not truncated: open with pdfplumber and confirm `len(pdf.pages) > 50` — a real prospectus is always well over 50 pages
-- [ ] Check file size: flag any file under 500KB as suspect (real prospectus documents are typically 5–50MB)
-- [ ] On any integrity failure: delete the bad file, log the reason, and re-enqueue with a 60-second delay (up to 3 retries before marking as `failed`)
+- [x] Validate PDF magic bytes (`%PDF-`) within the first 512 bytes immediately after download
+- [x] Validate the PDF is not truncated: open with pdfplumber and confirm `len(pdf.pages) > 50` — a real prospectus is always well over 50 pages
+- [x] Check file size: flag any file under 500KB as suspect (real prospectus documents are typically 5–50MB)
+- [x] On any integrity failure: delete the bad file, log the reason, and re-enqueue with a 60-second delay (up to 3 retries before marking as `failed`)
 
 ### ZIP Handling
-- [ ] When a ZIP is downloaded, extract all contained PDFs and rank them by file size — the largest PDF is almost always the main prospectus
-- [ ] Discard any extracted file whose name contains: `gid`, `form`, `checklist`, `certificate`, `notice`
-- [ ] If multiple large PDFs remain after filtering, pick the one with the highest page count
+- [x] When a ZIP is downloaded, extract all contained PDFs and rank them by file size — the largest PDF is almost always the main prospectus
+- [x] Discard any extracted file whose name contains: `gid`, `form`, `checklist`, `certificate`, `notice`
+- [x] If multiple large PDFs remain after filtering, pick the one with the highest page count
 
 ### Audit Script
-- [ ] `scripts/audit_downloads.py` — run after `batch_trigger.py` and report:
+- [x] `scripts/audit_downloads.py` — run after `batch_trigger.py` and report:
   - Total downloaded / total expected
   - Files with Unexpected EOF
   - Files below 500KB

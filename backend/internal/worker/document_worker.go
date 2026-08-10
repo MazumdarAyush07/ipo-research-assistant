@@ -177,15 +177,6 @@ func findDRHPLink(url string) (string, error) {
 	}
 
 	if pdfUrl == "" {
-		// DEBUG: Print all a tags to see what we missed
-		log.Printf("DEBUG: No valid link found. Listing all links on page:")
-		doc.Find("a").Each(func(i int, s *goquery.Selection) {
-			text := strings.TrimSpace(s.Text())
-			href, _ := s.Attr("href")
-			if href != "" && (strings.Contains(href, ".pdf") || strings.Contains(href, ".zip")) {
-				log.Printf("DEBUG LINK - Text: '%s', Href: '%s'", text, href)
-			}
-		})
 		return "", fmt.Errorf("no DRHP link found on the page")
 	}
 

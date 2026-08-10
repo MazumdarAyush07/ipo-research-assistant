@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 try:
     client = genai.Client()
 except Exception as e:
-    print(f"Failed to initialize Gemini Client: {e}")
+    logger.error(f"Failed to initialize Gemini Client: {e}")
     client = None
 
 class FinancialData(BaseModel):
@@ -139,7 +139,7 @@ def parse_financials(file_path: str) -> List[Dict[str, Any]]:
     if not pages:
         return []
     
-    logger.info(f"Found financial keywords on pages: {pages[:15]}")
+
     
     # Extract raw text from those specific pages
     raw_text = ""
@@ -152,7 +152,7 @@ def parse_financials(file_path: str) -> List[Dict[str, Any]]:
     # Add a small inter-request delay to avoid blasting the free tier quota
     time.sleep(2)
     
-    logger.info("Sending text to Gemini AI for extraction...")
+
     results = _ai_fallback(raw_text, force_model="gemini-3.1-flash-lite")
     
     needs_fallback = False

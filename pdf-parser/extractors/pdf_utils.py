@@ -63,6 +63,6 @@ def extract_text_from_pages(file_path: str, start_page: int, num_pages: int) -> 
                 if text:
                     extracted_text.append(text)
     except Exception as e:
-        print(f"Error extracting text from {file_path}: {e}")
+        logger.error(f"Error extracting text from {file_path}: {e}")
         
     return "\n".join(extracted_text)

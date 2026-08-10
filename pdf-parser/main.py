@@ -41,7 +41,7 @@ def health():
 
 @app.post("/parse", response_model=ParseResponse)
 def parse_pdf(req: ParseRequest):
-    print(f"Parsing PDF for IPO ID: {req.ipo_id} at {req.file_path}")
+
     
     financials_data = parse_financials(req.file_path)
     objects_text = extract_objects_of_issue(req.file_path)

@@ -352,19 +352,19 @@ Run `audit_downloads.py` against all current IPOs — every file passes the page
 **Goal:** Compute all key ratios automatically from extracted data.
 
 ## Tasks
-- [ ] Go service: `CalculateMetrics(ipo_id)` — reads from `financials` table
-- [ ] Revenue CAGR (3Y, 5Y)
-- [ ] PAT CAGR (3Y, 5Y)
-- [ ] EBITDA Margin (each year)
-- [ ] PAT Margin (each year)
-- [ ] Return on Equity (ROE)
-- [ ] Return on Capital Employed (ROCE)
-- [ ] Debt-to-Equity Ratio
-- [ ] Asset Turnover Ratio
-- [ ] PE Ratio (issue price / annualised EPS)
-- [ ] EV/EBITDA (market cap + debt − cash / EBITDA)
-- [ ] Unit tests for every formula (table-driven tests in Go)
-- [ ] `GET /api/ipos/:id/financials` — returns computed metrics
+- [x] Go service: `CalculateMetrics(ipo_id)` — reads from `financials` table
+- [x] Revenue CAGR (3Y, 5Y)
+- [x] PAT CAGR (3Y, 5Y)
+- [x] EBITDA Margin (each year)
+- [x] PAT Margin (each year)
+- [x] Return on Equity (ROE)
+- [x] Return on Capital Employed (ROCE)
+- [x] Debt-to-Equity Ratio
+- [x] Asset Turnover Ratio
+- [x] PE Ratio (issue price / annualised EPS)
+- [x] EV/EBITDA (market cap + debt − cash / EBITDA)
+- [x] Unit tests for every formula (table-driven tests in Go)
+- [x] `GET /api/ipos/:id/financials` — returns computed metrics
 
 ## Deliverables
 - All metrics calculated and returned via API

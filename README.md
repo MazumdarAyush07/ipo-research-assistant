@@ -19,7 +19,9 @@ An AI-powered system designed to analyze IPOs by extracting financials from DRHP
    ```
 
 2. **Environment Configuration:**
-   Copy `.env.example` to `.env` and fill in your details (like `CLAUDE_API_KEY`).
+   Copy `.env.example` to `.env` and fill in your details.
+   - `CLAUDE_API_KEY` (Used for Risk Evaluation)
+   - `GEMINI_API_KEY` (Used for DRHP Financial Extraction)
    ```bash
    cp .env.example .env
    ```

@@ -1,27 +1,52 @@
 import pdfplumber
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 
-def find_pages_with_keywords(file_path: str, keywords: List[str], max_pages_to_scan: int = 500) -> List[int]:
+import logging
+
+logger = logging.getLogger(__name__)
+
+def find_pages_with_keywords(file_path: str, keyword_weights: Dict[str, int]) -> List[int]:
     """
-    Scans a PDF and returns a list of page numbers (0-indexed) that contain at least one of the keywords.
+    Scans the document starting from 50% and ranks pages based on keyword weight density.
+    Returns the page numbers sorted by highest density first.
     """
-    found_pages = []
+    page_scores = []
     try:
         with pdfplumber.open(file_path) as pdf:
-            total_pages = min(len(pdf.pages), max_pages_to_scan)
-            for i in range(total_pages):
+            total_pages = len(pdf.pages)
+            # Scan the entire document to ensure we don't miss tables placed early in the PDF
+            start_from = 0
+            
+            pages_since_high_score = 0
+            found_financials = False
+            
+            for i in range(start_from, total_pages):
                 page = pdf.pages[i]
                 text = page.extract_text()
                 if text:
-                    text_lower = text.lower()
-                    for keyword in keywords:
-                        if keyword.lower() in text_lower:
-                            found_pages.append(i)
-                            break # Move to next page if any keyword is found
+                    text_flat = text.lower().replace('\n', ' ')
+                    score = 0
+                    
+                    if isinstance(keyword_weights, dict):
+                        for kw, weight in keyword_weights.items():
+                            if kw.lower() in text_flat:
+                                score += weight
+                    else:
+                        # Fallback for backwards compatibility with lists
+                        for kw in keyword_weights:
+                            if kw.lower() in text_flat:
+                                score += 1
+                            
+                    if score > 0:
+                        page_scores.append((i, score))
+                        
     except Exception as e:
-        print(f"Error scanning PDF {file_path}: {e}")
+        logger.error(f"Error scanning PDF {file_path}: {e}")
+        
+    # Sort pages by score descending, then by page number ascending
+    page_scores.sort(key=lambda x: (-x[1], x[0]))
     
-    return found_pages
+    return [p[0] for p in page_scores]
 
 def extract_text_from_pages(file_path: str, start_page: int, num_pages: int) -> str:
     """
@@ -34,10 +59,10 @@ def extract_text_from_pages(file_path: str, start_page: int, num_pages: int) -> 
             end_page = min(start_page + num_pages, total_pages)
             for i in range(start_page, end_page):
                 page = pdf.pages[i]
-                text = page.extract_text()
+                text = page.extract_text(layout=True)
                 if text:
                     extracted_text.append(text)
     except Exception as e:
-        print(f"Error extracting text from {file_path}: {e}")
+        logger.error(f"Error extracting text from {file_path}: {e}")
         
     return "\n".join(extracted_text)

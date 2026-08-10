@@ -1,99 +1,173 @@
-import camelot
-import pandas as pd
-from typing import List, Dict, Any, Optional
-from .pdf_utils import find_pages_with_keywords, extract_text_from_pages
+import os
 import re
+import time
+import logging
+from typing import List, Dict, Any, Optional
+from google import genai
+from google.genai import errors as genai_errors
+from pydantic import BaseModel, Field
+from .pdf_utils import find_pages_with_keywords, extract_text_from_pages
+
+logger = logging.getLogger(__name__)
+
+# Initialize Gemini Client (Will use GEMINI_API_KEY from environment)
+try:
+    client = genai.Client()
+except Exception as e:
+    logger.error(f"Failed to initialize Gemini Client: {e}")
+    client = None
+
+class FinancialData(BaseModel):
+    year: int
+    revenue: float
+    pat: float
+    ebitda: float
+    total_assets: float
+    total_debt: float
+    equity: float
+
+class FinancialResponse(BaseModel):
+    data: list[FinancialData] = Field(description="List of financial data for the last 3 years")
+
+def _ai_fallback(raw_text: str, force_model: str = None) -> List[Dict[str, Any]]:
+    """
+    Sends the raw text to Gemini and asks for a structured JSON extraction of the financial metrics.
+    Includes rate-limit-aware retry with exponential backoff.
+    """
+    if not client:
+        raise ValueError("Gemini Client not initialized (Missing GEMINI_API_KEY)")
+        
+    prompt = f"""
+    You are an expert financial analyst. I am providing you the raw text from the financial statements section of an Indian IPO Red Herring Prospectus (DRHP).
+    
+    Extract the following financial metrics for the last 3 fiscal years (e.g. 2024, 2023, 2022). 
+    If a value is not present, use 0.0. 
+    Ensure all values are extracted as simple floating point numbers (e.g. 1500.50). 
+    IMPORTANT: Make sure you use the actual financial amounts, NOT the calendar years (do not extract '2024' as the revenue).
+    Look out for synonyms:
+    - pat could be "Profit for the year", "Profit/(Loss) for the period", "Restated Profit After Tax"
+    - total_debt could be "Borrowings", "Financial Liabilities"
+    - equity could be "Net Worth", "Share Capital" + "Reserves", "Total Equity"
+    - total_assets could be "Total Assets", "Net Block"
+    
+    NOTE: The text might be scrambled or space-separated because it's extracted from a PDF. Reconstruct the columns mentally.
+    
+    The JSON fields must be: year, revenue, pat, ebitda, total_assets, total_debt, equity.
+    
+    RAW TEXT TO ANALYZE:
+    {raw_text[:100000]}
+    """
+    
+    if force_model:
+        model_name = force_model
+    else:
+        model_name = os.environ.get('GEMINI_MODEL', 'gemini-3.1-flash-lite')
+    
+    # Rate-limit-aware retry with exponential backoff
+    max_retries = 4
+    base_delay = 45  # seconds — slightly above the 39s the API suggests
+
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config={
+                    'response_mime_type': 'application/json',
+                    'response_schema': FinancialResponse,
+                    'temperature': 0.0,
+                },
+            )
+            
+            try:
+                return [item.model_dump() for item in response.parsed.data]
+            except Exception as e:
+                logger.error(f"AI extraction failed to parse response: {e}")
+                return []
+                
+        except genai_errors.ClientError as e:
+            if "429" in str(e):
+                # Extract retry delay from error if available, otherwise use exponential backoff
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    f"Rate limited by Gemini API (attempt {attempt + 1}/{max_retries}). "
+                    f"Waiting {delay}s before retry..."
+                )
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+                    continue
+                else:
+                    logger.error("Max retries exhausted due to rate limiting. Returning empty.")
+                    return []
+            else:
+                raise
+
+    return []
 
 def parse_financials(file_path: str) -> List[Dict[str, Any]]:
     """
-    Attempts to extract financials using Camelot. If it fails, falls back to raw text parsing.
+    Finds the financial pages, extracts the text, and calls Gemini for structured extraction.
     Returns a list of dicts: [{'year': 2023, 'revenue': 100, ...}]
     """
-    keywords = [
-        "restated consolidated statement of profit and loss",
-        "restated consolidated statement of assets and liabilities",
-        "restated statement of profit and loss",
-        "restated statement of assets and liabilities"
-    ]
+    keyword_weights = {
+        # Table titles (high recall, high weight)
+        "statement of profit and loss": 3,
+        "statement of assets and liabilities": 3,
+        "cash flow statement": 3,
+        "annexure i": 3,
+        "annexure ii": 3,
+        "annexure iii": 3,
+        "annexure iv": 3,
+        "particulars": 3,
+        
+        # Row headers (high precision/density, standard weight)
+        "total assets": 1,
+        "total equity and liabilities": 1,
+        "total equity": 1,
+        "total liabilities": 1,
+        "total income": 1,
+        "revenue from operations": 1,
+        "profit for the year": 1,
+        "profit for the period": 1,
+        "profit/(loss) for the year": 1,
+        "profit before tax": 1,
+        "cash flows from operating activities": 1,
+        "net cash from operating activities": 1
+    }
     
-    pages = find_pages_with_keywords(file_path, keywords)
+    pages = find_pages_with_keywords(file_path, keyword_weights)
     if not pages:
         return []
     
-    financials_data = []
+
     
-    try:
-        # Camelot expects 1-indexed string pages like "10,11,12"
-        page_str = ",".join([str(p + 1) for p in pages[:3]]) # Try first 3 matched pages
-        tables = camelot.read_pdf(file_path, pages=page_str, flavor='stream')
+    # Extract raw text from those specific pages
+    raw_text = ""
+    for p in pages[:15]:
+        raw_text += extract_text_from_pages(file_path, p, 1) + "\n"
         
-        if tables.n > 0:
-            df = tables[0].df
-            financials_data = _parse_dataframe(df)
-            
-        if not financials_data:
-            raise ValueError("Camelot returned empty data or failed to parse")
-            
-    except Exception as e:
-        print(f"Camelot extraction failed: {e}. Falling back to text extraction.")
-        # Fallback to pdfplumber raw text extraction
-        raw_text = extract_text_from_pages(file_path, pages[0], 3)
-        financials_data = _parse_raw_text(raw_text)
-
-    return financials_data
-
-def _parse_dataframe(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    """
-    Very basic heuristic to extract data from a dataframe.
-    """
-    # This is highly DRHP-dependent.
-    # We look for rows that contain "Revenue from operations", "Total Income", "Profit for the year"
+    if not raw_text.strip():
+        return []
+        
+    # Add a small inter-request delay to avoid blasting the free tier quota
+    time.sleep(2)
     
-    # Initialize a dummy response for now
-    # We will need to map columns to years (typically the columns to the right of the label)
-    results = [
-        {"year": 2023, "revenue": 0.0, "pat": 0.0, "ebitda": 0.0, "total_assets": 0.0, "total_debt": 0.0, "equity": 0.0},
-        {"year": 2022, "revenue": 0.0, "pat": 0.0, "ebitda": 0.0, "total_assets": 0.0, "total_debt": 0.0, "equity": 0.0},
-        {"year": 2021, "revenue": 0.0, "pat": 0.0, "ebitda": 0.0, "total_assets": 0.0, "total_debt": 0.0, "equity": 0.0}
-    ]
-    
-    return results
 
-def _parse_raw_text(text: str) -> List[Dict[str, Any]]:
-    """
-    Fallback: parse raw text with regex to find financial numbers.
-    """
-    results = [
-        {"year": 2023, "revenue": 0.0, "pat": 0.0, "ebitda": 0.0, "total_assets": 0.0, "total_debt": 0.0, "equity": 0.0},
-        {"year": 2022, "revenue": 0.0, "pat": 0.0, "ebitda": 0.0, "total_assets": 0.0, "total_debt": 0.0, "equity": 0.0},
-        {"year": 2021, "revenue": 0.0, "pat": 0.0, "ebitda": 0.0, "total_assets": 0.0, "total_debt": 0.0, "equity": 0.0}
-    ]
+    results = _ai_fallback(raw_text, force_model="gemini-3.1-flash-lite")
     
-    # Basic regex example: look for "Revenue from operations" followed by numbers
-    # This is a very rough heuristic
-    lines = text.split('\n')
-    for line in lines:
-        line_lower = line.lower()
-        if "revenue from operations" in line_lower or "total income" in line_lower:
-            numbers = re.findall(r'[\d,]+\.?\d*', line)
-            # Assuming the numbers are the last 3 columns (most recent year first or last)
-            # Just a placeholder heuristic
-            if len(numbers) >= 3:
-                try:
-                    results[0]['revenue'] = float(numbers[-3].replace(',', ''))
-                    results[1]['revenue'] = float(numbers[-2].replace(',', ''))
-                    results[2]['revenue'] = float(numbers[-1].replace(',', ''))
-                except:
-                    pass
-                    
-        if "profit for the year" in line_lower or "profit after tax" in line_lower:
-            numbers = re.findall(r'[\d,]+\.?\d*', line)
-            if len(numbers) >= 3:
-                try:
-                    results[0]['pat'] = float(numbers[-3].replace(',', ''))
-                    results[1]['pat'] = float(numbers[-2].replace(',', ''))
-                    results[2]['pat'] = float(numbers[-1].replace(',', ''))
-                except:
-                    pass
-                    
+    needs_fallback = False
+    if not results:
+        needs_fallback = True
+    else:
+        for row in results:
+            if row.get('revenue', 0) == 0.0 or row.get('pat', 0) == 0.0 or row.get('ebitda', 0) == 0.0 or \
+               row.get('total_assets', 0) == 0.0 or row.get('equity', 0) == 0.0:
+                needs_fallback = True
+                break
+                
+    if needs_fallback:
+        logger.warning("Missing critical metrics detected (0.0). Escalating to gemini-3.5-flash...")
+        time.sleep(2)
+        results = _ai_fallback(raw_text, force_model="gemini-3.5-flash")
+        
     return results

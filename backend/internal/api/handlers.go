@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
+	"github.com/MazumdarAyush07/ipo-research/internal/services"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
 )
@@ -56,9 +57,12 @@ func (h *IPOHandler) GetFinancials(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	metrics, _ := services.CalculateMetrics(financials)
+
 	return c.JSON(fiber.Map{
-		"status": "success",
-		"data":   financials,
+		"status":  "success",
+		"data":    financials,
+		"metrics": metrics,
 	})
 }
 

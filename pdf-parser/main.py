@@ -41,7 +41,7 @@ def health():
 
 @app.post("/parse", response_model=ParseResponse)
 def parse_pdf(req: ParseRequest):
-    print(f"Parsing PDF for IPO ID: {req.ipo_id} at {req.file_path}")
+
     
     financials_data = parse_financials(req.file_path)
     objects_text = extract_objects_of_issue(req.file_path)
@@ -62,3 +62,24 @@ def parse_pdf(req: ParseRequest):
             "text_extraction": 0.90
         }
     )
+
+import pdfplumber
+
+class ValidateRequest(BaseModel):
+    file_path: str
+
+class ValidateResponse(BaseModel):
+    valid: bool
+    page_count: int
+    error: Optional[str] = None
+
+@app.post("/validate", response_model=ValidateResponse)
+def validate_pdf(req: ValidateRequest):
+    try:
+        with pdfplumber.open(req.file_path) as pdf:
+            page_count = len(pdf.pages)
+            if page_count < 50:
+                return ValidateResponse(valid=False, page_count=page_count, error="Page count is less than 50")
+            return ValidateResponse(valid=True, page_count=page_count)
+    except Exception as e:
+        return ValidateResponse(valid=False, page_count=0, error=str(e))

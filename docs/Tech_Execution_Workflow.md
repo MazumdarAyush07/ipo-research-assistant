@@ -380,14 +380,14 @@ Unit tests pass for all financial formulas. API returns correct metrics for seed
 **Goal:** Benchmark IPO valuation against listed sector peers.
 
 ## Tasks
-- [ ] Sector → peers mapping (JSON config file to start)
-- [ ] Fetch peer market multiples (NSE/BSE API or scraping): PE, PB, EV/EBITDA, ROE
-- [ ] Redis cache: peer data with 24-hour TTL
-- [ ] Comparison engine: IPO valuation vs peer median
-- [ ] Premium/discount calculation (% above or below peer median PE)
-- [ ] Flag: >40% premium → Expensive | 10–40% → Fair | <10% → Attractive
-- [ ] Store in `peer_companies` table
-- [ ] `GET /api/ipos/:id/peers` — returns peer table + comparison metrics
+- [x] Sector → peers mapping (JSON config file to start)
+- [x] Fetch peer market multiples (NSE/BSE API or scraping): PE, PB, EV/EBITDA, ROE
+- [x] Redis cache: peer data with 24-hour TTL
+- [x] Comparison engine: IPO valuation vs peer median
+- [x] Premium/discount calculation (% above or below peer median PE)
+- [x] Flag: >40% premium → Expensive | 10–40% → Fair | <10% → Attractive
+- [x] Store in `peer_companies` table
+- [x] `GET /api/ipos/:id/peers` — returns peer table + comparison metrics
 
 ## Deliverables
 - Peer data fetched and cached for at least 5 sectors

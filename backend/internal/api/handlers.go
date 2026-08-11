@@ -11,10 +11,11 @@ import (
 type IPOHandler struct {
 	Queries     *models.Queries
 	AsynqClient *asynq.Client
+	PeerService *services.PeerService
 }
 
-func NewIPOHandler(q *models.Queries, client *asynq.Client) *IPOHandler {
-	return &IPOHandler{Queries: q, AsynqClient: client}
+func NewIPOHandler(q *models.Queries, client *asynq.Client, ps *services.PeerService) *IPOHandler {
+	return &IPOHandler{Queries: q, AsynqClient: client, PeerService: ps}
 }
 
 // ListIPOs handles GET /api/ipos

@@ -7,6 +7,8 @@ import (
 
 	"github.com/MazumdarAyush07/ipo-research/internal/api"
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
+	"github.com/MazumdarAyush07/ipo-research/internal/services"
+	"github.com/redis/go-redis/v9"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -45,14 +47,24 @@ func main() {
 
 	queries := models.New(db)
 
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+	})
+
+	peerService, err := services.NewPeerService(redisClient, "config/peers.json")
+	if err != nil {
+		log.Printf("Warning: Failed to init PeerService: %v", err)
+	}
+
 	// Setup API handlers
-	ipoHandler := api.NewIPOHandler(queries, asynqClient)
+	ipoHandler := api.NewIPOHandler(queries, asynqClient, peerService)
 	// Register Routes
 	app.Get("/api/ipos", ipoHandler.ListIPOs)
 	app.Post("/api/ipos", ipoHandler.ManualSyncIPOs)
 	
 	app.Get("/api/ipos/:id/financials", ipoHandler.GetFinancials)
 	app.Get("/api/ipos/:id/analysis", ipoHandler.GetAIAnalysis)
+	app.Get("/api/ipos/:id/peers", ipoHandler.GetPeers)
 
 	// Document endpoints
 	app.Post("/api/ipos/:id/documents/trigger", ipoHandler.TriggerDocumentDownload)

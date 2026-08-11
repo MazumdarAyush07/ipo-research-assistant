@@ -1,0 +1,33 @@
+{
+    "Healthcare": [
+        "APOLLOHOSP.NS",
+        "FORTIS.NS",
+        "MAXHEALTH.NS",
+        "NARAYANA.NS",
+        "GLOBALVECT.NS"
+    ],
+    "Auto Components": [
+        "BOSCHLTD.NS",
+        "SONACOMS.NS",
+        "MINDAIND.NS",
+        "ENDURANCE.NS"
+    ],
+    "IT Services": [
+        "TCS.NS",
+        "INFY.NS",
+        "WIPRO.NS",
+        "HCLTECH.NS"
+    ],
+    "FMCG": [
+        "HUL.NS",
+        "ITC.NS",
+        "NESTLEIND.NS",
+        "BRITANNIA.NS"
+    ],
+    "Financial Services": [
+        "BAJFINANCE.NS",
+        "CHOLAFIN.NS",
+        "SHRIRAMFIN.NS",
+        "MUTHOOTFIN.NS"
+    ]
+}

@@ -62,13 +62,26 @@ func (p *Processor) HandleSyncIPOsTask(ctx context.Context, t *asynq.Task) error
 			parsedSourceUrl = sql.NullString{String: ipo.SourceUrl, Valid: true}
 		}
 
+		status := "UPCOMING"
+		if parsedOpenDate.Valid && parsedCloseDate.Valid {
+			now := time.Now().Truncate(24 * time.Hour)
+			openDate := parsedOpenDate.Time.Truncate(24 * time.Hour)
+			closeDate := parsedCloseDate.Time.Truncate(24 * time.Hour)
+
+			if now.After(closeDate) {
+				status = "CLOSED"
+			} else if !now.Before(openDate) && !now.After(closeDate) {
+				status = "ACTIVE"
+			}
+		}
+
 		// Insert new IPO
 		insertedIPO, err := p.Queries.CreateIPO(ctx, models.CreateIPOParams{
 			Name:         ipo.Name,
 			ExchangeType: sql.NullString{String: ipo.ExchangeType, Valid: true},
 			OpenDate:     parsedOpenDate,
 			CloseDate:    parsedCloseDate,
-			Status:       sql.NullString{String: "UPCOMING", Valid: true},
+			Status:       sql.NullString{String: status, Valid: true},
 			SourceUrl:    parsedSourceUrl,
 		})
 		if err != nil {

@@ -55,6 +55,7 @@ func main() {
 	mux := asynq.NewServeMux()
 	proc := worker.NewProcessor(queries, client)
 
+	mux.HandleFunc(worker.TaskSyncIPOs, proc.HandleSyncIPOsTask)
 	mux.HandleFunc(worker.TaskDownloadDocuments, proc.HandleDownloadDocumentsTask)
 	mux.HandleFunc(worker.TaskParseDocument, proc.ProcessTaskParseDocument)
 

@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/PuerkitoBio/goquery"
-	"github.com/chromedp/chromedp"
 )
 
+// ScrapedIPO holds the parsed IPO data from any source.
 type ScrapedIPO struct {
 	Name         string
 	ExchangeType string
@@ -21,59 +20,109 @@ type ScrapedIPO struct {
 	SourceUrl    string
 }
 
-// IPOSource defines an interface for fetching IPOs
-type IPOSource interface {
-	FetchUpcomingIPOs(ctx context.Context, url string) ([]ScrapedIPO, error)
+// chittorgarhIPO maps the exact JSON fields from the webnodejs list-read API.
+type chittorgarhIPO struct {
+	ID                  int    `json:"id"`                    // e.g. 2510
+	IpoNewsTitle        string `json:"ipo_news_title"`        // e.g. "Skyways Air IPO"
+	IssueCategory       string `json:"issue_category"`        // "Mainline" or "SME"
+	IpoPeriod           string `json:"ipo_period"`            // e.g. "24 Aug - 27 Aug"
+	UrlrewriteFolderName string `json:"urlrewrite_folder_name"` // e.g. "skyways-air-ipo"
 }
 
-// ChromedpSource uses a headless browser to render JS-hydrated tables
-type ChromedpSource struct{}
-
-func (s *ChromedpSource) FetchUpcomingIPOs(ctx context.Context, url string) ([]ScrapedIPO, error) {
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", true),
-		chromedp.Flag("disable-gpu", true),
-		chromedp.Flag("no-sandbox", true),
-		chromedp.Flag("disable-dev-shm-usage", true),
-	)
-
-	allocCtx, cancel := chromedp.NewExecAllocator(ctx, opts...)
-	defer cancel()
-
-	taskCtx, cancel := chromedp.NewContext(allocCtx)
-	defer cancel()
-
-	// Timeout to prevent hanging
-	taskCtx, cancel = context.WithTimeout(taskCtx, 30*time.Second)
-	defer cancel()
-
-	var htmlContent string
-	err := chromedp.Run(taskCtx,
-		chromedp.Navigate(url),
-		// Wait for the table to be rendered by Next.js
-		chromedp.WaitVisible(`table`, chromedp.ByQuery),
-		chromedp.OuterHTML(`html`, &htmlContent, chromedp.ByQuery),
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("chromedp failed to fetch page: %w", err)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse html: %w", err)
-	}
-
-	return parseHTMLTable(doc), nil
+// chittorgarhResponse is the top-level JSON wrapper for list-read.
+type chittorgarhResponse struct {
+	IpoDropDownList []chittorgarhIPO `json:"ipoDropDownList"`
 }
 
-// APISource acts as a fallback using a local JSON file (or a real API later)
+// ChittorgarhAPISource fetches IPO data from the Chittorgarh webnodejs JSON API.
+// Endpoint discovered from network requests by https://www.chittorgarh.com/report/ipo-in-india-list-main-board-sme/82/all/
+type ChittorgarhAPISource struct{}
+
+const (
+	chittorgarhListReadURL = "https://webnodejs.chittorgarh.com/cloud/ipo/list-read"
+	chittorgarhBaseURL     = "https://www.chittorgarh.com/ipo/"
+)
+
+func (s *ChittorgarhAPISource) FetchUpcomingIPOs(ctx context.Context, _ string) ([]ScrapedIPO, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", chittorgarhListReadURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Origin", "https://www.chittorgarh.com")
+	req.Header.Set("Referer", "https://www.chittorgarh.com/")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http fetch failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("API returned status code: %d", resp.StatusCode)
+	}
+
+	var apiResp chittorgarhResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON response: %w", err)
+	}
+
+	log.Printf("Chittorgarh API returned %d IPOs", len(apiResp.IpoDropDownList))
+
+	var ipos []ScrapedIPO
+	for _, item := range apiResp.IpoDropDownList {
+		// Parse "24 Aug - 27 Aug" into open and close dates
+		// We reconstruct them as "24-Aug-YYYY" using the current year
+		currentYear := time.Now().Year()
+		openDate, closeDate := parsePeriod(item.IpoPeriod, currentYear)
+
+		sourceUrl := ""
+		if item.UrlrewriteFolderName != "" {
+			// Real Chittorgarh URLs end with the ID, e.g. /ipo/skyways-air-ipo/2510/
+			sourceUrl = fmt.Sprintf("%s%s/%d/", chittorgarhBaseURL, item.UrlrewriteFolderName, item.ID)
+		}
+
+		// Normalise "Mainline" -> "MAINBOARD" to match our DB schema
+		exchangeType := strings.ToUpper(item.IssueCategory)
+		if exchangeType == "MAINLINE" {
+			exchangeType = "MAINBOARD"
+		}
+
+		ipos = append(ipos, ScrapedIPO{
+			Name:         item.IpoNewsTitle,
+			ExchangeType: exchangeType,
+			OpenDate:     openDate,
+			CloseDate:    closeDate,
+			SourceUrl:    sourceUrl,
+		})
+	}
+
+	return ipos, nil
+}
+
+// parsePeriod parses "24 Aug - 27 Aug" into ("24-Aug-2026", "27-Aug-2026").
+func parsePeriod(period string, year int) (openDate, closeDate string) {
+	parts := strings.Split(period, " - ")
+	if len(parts) != 2 {
+		return "", ""
+	}
+
+	// Each part is like "24 Aug" — convert to "24-Aug-YYYY"
+	openDate = strings.ReplaceAll(strings.TrimSpace(parts[0]), " ", "-") + fmt.Sprintf("-%d", year)
+	closeDate = strings.ReplaceAll(strings.TrimSpace(parts[1]), " ", "-") + fmt.Sprintf("-%d", year)
+	return openDate, closeDate
+}
+
+// APISource acts as a last-resort fallback using a local JSON file.
 type APISource struct {
 	FallbackFilePath string
 }
 
 func (s *APISource) FetchUpcomingIPOs(ctx context.Context, url string) ([]ScrapedIPO, error) {
-	log.Println("Using APISource fallback...")
+	log.Println("Using local JSON fallback...")
 	data, err := os.ReadFile(s.FallbackFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read fallback data: %w", err)
@@ -84,72 +133,26 @@ func (s *APISource) FetchUpcomingIPOs(ctx context.Context, url string) ([]Scrape
 		return nil, fmt.Errorf("failed to parse fallback JSON: %w", err)
 	}
 
-	log.Printf("Fallback API returned %d IPOs", len(ipos))
+	log.Printf("Fallback JSON returned %d IPOs", len(ipos))
 	return ipos, nil
 }
 
 // FetchUpcomingIPOs is the main entry point for the processor.
-// It tries Chromedp first, and falls back to APISource if it fails.
 func FetchUpcomingIPOs(ctx context.Context, url string) ([]ScrapedIPO, error) {
-	primary := &ChromedpSource{}
-	fallback := &APISource{FallbackFilePath: "fallback_data.json"}
+	primary := &ChittorgarhAPISource{}
+	fallback := &APISource{FallbackFilePath: "internal/scraper/fallback_data.json"}
 
 	ipos, err := primary.FetchUpcomingIPOs(ctx, url)
 	if err == nil && len(ipos) > 0 {
-		log.Printf("Successfully scraped %d IPOs using Headless Chrome", len(ipos))
+		log.Printf("Successfully fetched %d IPOs from Chittorgarh JSON API", len(ipos))
 		return ipos, nil
 	}
 
 	if err != nil {
-		log.Printf("Primary scraper failed: %v. Falling back to API...", err)
+		log.Printf("Chittorgarh API failed: %v. Falling back to local file...", err)
 	} else {
-		log.Printf("Primary scraper returned 0 IPOs. Falling back to API just in case...")
+		log.Printf("Chittorgarh API returned 0 IPOs. Falling back to local file...")
 	}
 
 	return fallback.FetchUpcomingIPOs(ctx, url)
-}
-
-// parseHTMLTable extracts IPO data from the loaded goquery document
-func parseHTMLTable(doc *goquery.Document) []ScrapedIPO {
-	var ipos []ScrapedIPO
-	
-	// Identify the main table on the report page by checking for the "Issue Category" header
-	doc.Find("table").Each(func(i int, table *goquery.Selection) {
-		isIPOTable := false
-		table.Find("th").Each(func(j int, th *goquery.Selection) {
-			if strings.Contains(strings.ToLower(strings.TrimSpace(th.Text())), "issue category") {
-				isIPOTable = true
-			}
-		})
-
-		if !isIPOTable {
-			return
-		}
-
-		table.Find("tr").Each(func(k int, row *goquery.Selection) {
-			cols := row.Find("td")
-			// The report table has around 10 columns
-			if cols.Length() >= 5 {
-				name := strings.TrimSpace(cols.Eq(0).Text())
-				sourceUrl, _ := cols.Eq(0).Find("a").Attr("href")
-				exchangeType := strings.ToUpper(strings.TrimSpace(cols.Eq(1).Text()))
-				openDate := strings.TrimSpace(cols.Eq(3).Text())
-				closeDate := strings.TrimSpace(cols.Eq(4).Text())
-
-				if name == "" {
-					return
-				}
-
-				ipos = append(ipos, ScrapedIPO{
-					Name:         name,
-					ExchangeType: exchangeType,
-					OpenDate:     openDate,
-					CloseDate:    closeDate,
-					SourceUrl:    sourceUrl,
-				})
-			}
-		})
-	})
-	
-	return ipos
 }

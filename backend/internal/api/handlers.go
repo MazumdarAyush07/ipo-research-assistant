@@ -25,7 +25,7 @@ func (h *IPOHandler) ListIPOs(c *fiber.Ctx) error {
 	}
 
 	ipos, err := h.Queries.ListIPOs(c.Context(), models.ListIPOsParams{
-		Limit:  50,
+		Limit:  1000,
 		Offset: 0,
 	})
 	if err != nil {
@@ -40,6 +40,13 @@ func (h *IPOHandler) ListIPOs(c *fiber.Ctx) error {
 
 // ManualSyncIPOs handles POST /api/ipos
 func (h *IPOHandler) ManualSyncIPOs(c *fiber.Ctx) error {
+	if h.AsynqClient != nil {
+		task := asynq.NewTask("ipo:sync", nil)
+		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "failed to enqueue sync task"})
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"status":  "success",
 		"message": "Manual sync triggered",

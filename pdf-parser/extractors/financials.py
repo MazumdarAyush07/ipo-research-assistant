@@ -27,6 +27,7 @@ class FinancialData(BaseModel):
     equity: float
 
 class FinancialResponse(BaseModel):
+    unit: str = Field(description="The unit of the financial numbers. One of: 'Lakhs', 'Millions', 'Crores', 'Thousands', 'Actual'", default="Lakhs")
     data: list[FinancialData] = Field(description="List of financial data for the last 3 years")
 
 def _ai_fallback(raw_text: str, force_model: str = None) -> List[Dict[str, Any]]:
@@ -44,11 +45,21 @@ def _ai_fallback(raw_text: str, force_model: str = None) -> List[Dict[str, Any]]
     If a value is not present, use 0.0. 
     Ensure all values are extracted as simple floating point numbers (e.g. 1500.50). 
     IMPORTANT: Make sure you use the actual financial amounts, NOT the calendar years (do not extract '2024' as the revenue).
+    
+    CRITICAL - UNIT EXTRACTION:
+    DO NOT normalize the units yourself. Extract the exact numbers as they appear in the tables. 
+    Instead, you MUST determine the unit used in the financial statements and return it in the `unit` field.
+    - Check the header/footnote of the financial table for the unit declaration.
+    - It will typically say "in Lakhs", "in ₹ Lakhs", "in Millions", "in Crores", or "in Thousands".
+    - If no unit is specified and numbers are huge, it might be "Actual" (single rupees).
+    - Return one of: 'Lakhs', 'Millions', 'Crores', 'Thousands', 'Actual'.
+    
     Look out for synonyms:
     - pat could be "Profit for the year", "Profit/(Loss) for the period", "Restated Profit After Tax"
-    - total_debt could be "Borrowings", "Financial Liabilities"
-    - equity could be "Net Worth", "Share Capital" + "Reserves", "Total Equity"
-    - total_assets could be "Total Assets", "Net Block"
+    - total_debt could be "Borrowings", "Financial Liabilities", "Long-term Borrowings" + "Short-term Borrowings"
+    - equity could be "Net Worth", "Share Capital" + "Reserves", "Total Equity", "Shareholders Funds"
+    - total_assets could be "Total Assets", "Total Non-Current Assets" + "Total Current Assets", "Total Assets (A+B)", "Assets"
+    - revenue could be "Revenue from Operations", "Total Income", "Net Revenue"
     
     NOTE: The text might be scrambled or space-separated because it's extracted from a PDF. Reconstruct the columns mentally.
     
@@ -80,7 +91,29 @@ def _ai_fallback(raw_text: str, force_model: str = None) -> List[Dict[str, Any]]
             )
             
             try:
-                return [item.model_dump() for item in response.parsed.data]
+                scale_factor = 1.0
+                unit_str = response.parsed.unit.lower()
+                if "lakh" in unit_str:
+                    scale_factor = 100.0
+                elif "million" in unit_str:
+                    scale_factor = 10.0
+                elif "thousand" in unit_str:
+                    scale_factor = 10000.0
+                elif "actual" in unit_str or "rupee" in unit_str:
+                    scale_factor = 10000000.0
+                
+                result_data = []
+                for item in response.parsed.data:
+                    d = item.model_dump()
+                    if scale_factor != 1.0:
+                        d['revenue'] = round(d['revenue'] / scale_factor, 2)
+                        d['pat'] = round(d['pat'] / scale_factor, 2)
+                        d['ebitda'] = round(d['ebitda'] / scale_factor, 2)
+                        d['total_assets'] = round(d['total_assets'] / scale_factor, 2)
+                        d['total_debt'] = round(d['total_debt'] / scale_factor, 2)
+                        d['equity'] = round(d['equity'] / scale_factor, 2)
+                    result_data.append(d)
+                return result_data
             except Exception as e:
                 logger.error(f"AI extraction failed to parse response: {e}")
                 return []
@@ -113,6 +146,9 @@ def parse_financials(file_path: str) -> List[Dict[str, Any]]:
         # Table titles (high recall, high weight)
         "statement of profit and loss": 3,
         "statement of assets and liabilities": 3,
+        "balance sheet": 3,
+        "restated financial statements": 3,
+        "restated statement": 3,
         "cash flow statement": 3,
         "annexure i": 3,
         "annexure ii": 3,
@@ -120,31 +156,38 @@ def parse_financials(file_path: str) -> List[Dict[str, Any]]:
         "annexure iv": 3,
         "particulars": 3,
         
-        # Row headers (high precision/density, standard weight)
-        "total assets": 1,
-        "total equity and liabilities": 1,
-        "total equity": 1,
-        "total liabilities": 1,
-        "total income": 1,
-        "revenue from operations": 1,
-        "profit for the year": 1,
-        "profit for the period": 1,
-        "profit/(loss) for the year": 1,
-        "profit before tax": 1,
+        # Row headers (high weight now — balance sheet rows are critical)
+        "total assets": 3,
+        "total equity and liabilities": 3,
+        "non-current assets": 2,
+        "current assets": 2,
+        "total equity": 2,
+        "shareholders funds": 2,
+        "total liabilities": 2,
+        "total income": 2,
+        "revenue from operations": 2,
+        "profit for the year": 2,
+        "profit for the period": 2,
+        "profit/(loss) for the year": 2,
+        "profit before tax": 2,
         "cash flows from operating activities": 1,
         "net cash from operating activities": 1
     }
     
-    pages = find_pages_with_keywords(file_path, keyword_weights)
-    if not pages:
+    import pdfplumber
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            pages = find_pages_with_keywords(pdf, keyword_weights)
+            if not pages:
+                return []
+            
+            # Extract raw text from those specific pages
+            raw_text = ""
+            for p in pages[:20]:
+                raw_text += extract_text_from_pages(pdf, p, 1) + "\n"
+    except Exception as e:
+        logger.error(f"Failed to open PDF {file_path}: {e}")
         return []
-    
-
-    
-    # Extract raw text from those specific pages
-    raw_text = ""
-    for p in pages[:15]:
-        raw_text += extract_text_from_pages(file_path, p, 1) + "\n"
         
     if not raw_text.strip():
         return []

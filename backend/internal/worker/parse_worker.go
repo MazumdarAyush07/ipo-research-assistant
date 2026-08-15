@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/hibiken/asynq"
@@ -42,7 +43,11 @@ func (p *Processor) ProcessTaskParseDocument(ctx context.Context, task *asynq.Ta
 		"doc_type":  "DRHP",
 	})
 
-	resp, err := http.Post(parserURL+"/parse", "application/json", bytes.NewBuffer(reqBody))
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+	}
+
+	resp, err := client.Post(parserURL+"/parse", "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
 		log.Printf("failed to call pdf-parser: %v", err)
 		return fmt.Errorf("failed to call pdf-parser: %w", err)

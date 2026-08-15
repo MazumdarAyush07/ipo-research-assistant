@@ -25,7 +25,7 @@ func (h *IPOHandler) ListIPOs(c *fiber.Ctx) error {
 	}
 
 	ipos, err := h.Queries.ListIPOs(c.Context(), models.ListIPOsParams{
-		Limit:  50,
+		Limit:  1000,
 		Offset: 0,
 	})
 	if err != nil {

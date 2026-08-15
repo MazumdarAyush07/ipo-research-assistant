@@ -43,9 +43,9 @@ services:
       - ./storage:/storage
 
   pdf-parser:
+    restart: always
     build:
       context: ./pdf-parser
-      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:

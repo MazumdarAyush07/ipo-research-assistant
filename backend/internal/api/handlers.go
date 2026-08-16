@@ -1,6 +1,9 @@
 package api
 
 import (
+	"path/filepath"
+	"strings"
+
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/MazumdarAyush07/ipo-research/internal/services"
 	"github.com/gofiber/fiber/v2"
@@ -89,6 +92,35 @@ func (h *IPOHandler) GetAIAnalysis(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status": "success",
 		"data":   analysis,
+	})
+}
+
+// TriggerAIAnalysis handles POST /api/ipos/:id/analysis/trigger
+func (h *IPOHandler) TriggerAIAnalysis(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	ipo, err := h.Queries.GetIPO(c.Context(), int64(id))
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "IPO not found"})
+	}
+
+	slug := strings.ReplaceAll(strings.ToLower(ipo.Name), " ", "-")
+	filePath := filepath.Join("../storage", slug, "drhp.pdf")
+
+	if h.AsynqClient != nil {
+		payload := []byte(`{"ipo_id":` + c.Params("id") + `,"file_path":"` + filePath + `"}`)
+		task := asynq.NewTask("task:analyze_document", payload)
+		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "failed to enqueue ai analysis task"})
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"status":  "success",
+		"message": "AI analysis triggered",
 	})
 }
 

@@ -83,3 +83,24 @@ def validate_pdf(req: ValidateRequest):
             return ValidateResponse(valid=True, page_count=page_count)
     except Exception as e:
         return ValidateResponse(valid=False, page_count=0, error=str(e))
+
+class ExtractTextRequest(BaseModel):
+    file_path: str
+
+class ExtractTextResponse(BaseModel):
+    status: str
+    text: str
+    error: Optional[str] = None
+
+@app.post("/extract-text", response_model=ExtractTextResponse)
+def extract_full_text(req: ExtractTextRequest):
+    try:
+        full_text = []
+        with pdfplumber.open(req.file_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    full_text.append(text)
+        return ExtractTextResponse(status="success", text="\n".join(full_text))
+    except Exception as e:
+        return ExtractTextResponse(status="error", text="", error=str(e))

@@ -672,7 +672,7 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] Financial Metrics Calculator — all ratios computed and tested
 - [x] Peer Comparison — valuation benchmarked against sector
 - [x] Subscription & GMP Tracker — live demand signals captured
-- [ ] AI Document Analyzer — Claude returns red flags, not just summaries
+- [x] AI Document Analyzer — Gemini returns red flags, not just summaries
 - [ ] Explainable Scoring Engine — every score has a reason string
 - [ ] HTML Report Generator — report auto-produced with AI findings
 - [ ] Next.js Dashboard — all data visible end-to-end

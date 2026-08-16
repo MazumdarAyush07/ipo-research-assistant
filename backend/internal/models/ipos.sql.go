@@ -71,6 +71,47 @@ func (q *Queries) CreateIPO(ctx context.Context, arg CreateIPOParams) (Ipo, erro
 	return i, err
 }
 
+const getActiveIPOs = `-- name: GetActiveIPOs :many
+SELECT id, name, exchange_type, sector, price_band_low, price_band_high, open_date, close_date, listing_date, status, source_url FROM ipos
+WHERE status IN ('ACTIVE', 'UPCOMING')
+ORDER BY open_date ASC
+`
+
+func (q *Queries) GetActiveIPOs(ctx context.Context) ([]Ipo, error) {
+	rows, err := q.db.QueryContext(ctx, getActiveIPOs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Ipo
+	for rows.Next() {
+		var i Ipo
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ExchangeType,
+			&i.Sector,
+			&i.PriceBandLow,
+			&i.PriceBandHigh,
+			&i.OpenDate,
+			&i.CloseDate,
+			&i.ListingDate,
+			&i.Status,
+			&i.SourceUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getIPO = `-- name: GetIPO :one
 SELECT id, name, exchange_type, sector, price_band_low, price_band_high, open_date, close_date, listing_date, status, source_url FROM ipos
 WHERE id = $1 LIMIT 1
@@ -163,4 +204,48 @@ func (q *Queries) ListIPOs(ctx context.Context, arg ListIPOsParams) ([]Ipo, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateIPO = `-- name: UpdateIPO :one
+UPDATE ipos
+SET 
+    exchange_type = $2,
+    open_date = $3,
+    close_date = $4,
+    status = $5
+WHERE id = $1
+RETURNING id, name, exchange_type, sector, price_band_low, price_band_high, open_date, close_date, listing_date, status, source_url
+`
+
+type UpdateIPOParams struct {
+	ID           int64
+	ExchangeType sql.NullString
+	OpenDate     sql.NullTime
+	CloseDate    sql.NullTime
+	Status       sql.NullString
+}
+
+func (q *Queries) UpdateIPO(ctx context.Context, arg UpdateIPOParams) (Ipo, error) {
+	row := q.db.QueryRowContext(ctx, updateIPO,
+		arg.ID,
+		arg.ExchangeType,
+		arg.OpenDate,
+		arg.CloseDate,
+		arg.Status,
+	)
+	var i Ipo
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ExchangeType,
+		&i.Sector,
+		&i.PriceBandLow,
+		&i.PriceBandHigh,
+		&i.OpenDate,
+		&i.CloseDate,
+		&i.ListingDate,
+		&i.Status,
+		&i.SourceUrl,
+	)
+	return i, err
 }

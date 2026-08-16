@@ -58,6 +58,8 @@ func main() {
 	mux.HandleFunc(worker.TaskSyncIPOs, proc.HandleSyncIPOsTask)
 	mux.HandleFunc(worker.TaskDownloadDocuments, proc.HandleDownloadDocumentsTask)
 	mux.HandleFunc(worker.TaskParseDocument, proc.ProcessTaskParseDocument)
+	mux.HandleFunc(worker.TaskSyncGMP, proc.HandleSyncGMPTask)
+	mux.HandleFunc(worker.TaskSyncSubscriptions, proc.HandleSyncSubscriptionsTask)
 
 	log.Println("Starting Asynq Worker Server...")
 	if err := srv.Run(mux); err != nil {

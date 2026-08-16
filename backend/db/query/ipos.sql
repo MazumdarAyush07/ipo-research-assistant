@@ -27,3 +27,18 @@ LIMIT $1 OFFSET $2;
 -- name: GetIPO :one
 SELECT * FROM ipos
 WHERE id = $1 LIMIT 1;
+
+-- name: GetActiveIPOs :many
+SELECT * FROM ipos
+WHERE status IN ('ACTIVE', 'UPCOMING')
+ORDER BY open_date ASC;
+
+-- name: UpdateIPO :one
+UPDATE ipos
+SET 
+    exchange_type = $2,
+    open_date = $3,
+    close_date = $4,
+    status = $5
+WHERE id = $1
+RETURNING *;

@@ -68,14 +68,14 @@ INSERT INTO peer_companies (
 `
 
 type InsertPeerCompanyParams struct {
-	IpoID     int64          `json:"ipo_id"`
-	Name      string         `json:"name"`
-	Ticker    sql.NullString `json:"ticker"`
-	Pe        sql.NullString `json:"pe"`
-	Pb        sql.NullString `json:"pb"`
-	EvEbitda  sql.NullString `json:"ev_ebitda"`
-	Roe       sql.NullString `json:"roe"`
-	MarketCap sql.NullString `json:"market_cap"`
+	IpoID     int64
+	Name      string
+	Ticker    sql.NullString
+	Pe        sql.NullString
+	Pb        sql.NullString
+	EvEbitda  sql.NullString
+	Roe       sql.NullString
+	MarketCap sql.NullString
 }
 
 func (q *Queries) InsertPeerCompany(ctx context.Context, arg InsertPeerCompanyParams) (PeerCompany, error) {

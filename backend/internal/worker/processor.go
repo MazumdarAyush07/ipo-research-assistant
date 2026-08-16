@@ -35,13 +35,6 @@ func (p *Processor) HandleSyncIPOsTask(ctx context.Context, t *asynq.Task) error
 	
 	insertedCount := 0
 	for _, ipo := range ipos {
-		// Deduplication check
-		_, err := p.Queries.GetIPOByName(ctx, ipo.Name)
-		if err == nil {
-			// IPO exists, skip
-			continue
-		}
-
 		// Parse dates (e.g. "10-Aug-2026" -> sql.NullTime)
 		var parsedOpenDate sql.NullTime
 		if ipo.OpenDate != "" {
@@ -73,6 +66,23 @@ func (p *Processor) HandleSyncIPOsTask(ctx context.Context, t *asynq.Task) error
 			} else if !now.Before(openDate) && !now.After(closeDate) {
 				status = "ACTIVE"
 			}
+		}
+
+		// Deduplication check
+		existingIPO, err := p.Queries.GetIPOByName(ctx, ipo.Name)
+		if err == nil {
+			// IPO exists, update its status and dates
+			_, err = p.Queries.UpdateIPO(ctx, models.UpdateIPOParams{
+				ID:           existingIPO.ID,
+				ExchangeType: sql.NullString{String: ipo.ExchangeType, Valid: true},
+				OpenDate:     parsedOpenDate,
+				CloseDate:    parsedCloseDate,
+				Status:       sql.NullString{String: status, Valid: true},
+			})
+			if err != nil {
+				log.Printf("Failed to update IPO %s: %v", ipo.Name, err)
+			}
+			continue
 		}
 
 		// Insert new IPO

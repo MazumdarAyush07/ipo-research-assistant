@@ -403,17 +403,17 @@ For a hospital-sector IPO, the API returns Apollo, Max, Fortis, Narayana with cu
 **Goal:** Track live demand signals during the IPO window.
 
 ## Subscription Tracker
-- [ ] Scraper: fetch NSE/Chittorgarh subscription data every 2 hours during IPO open days
-- [ ] Store: category (QIB, NII, Retail, Employee, Shareholder), times_subscribed, recorded_at
-- [ ] Cron: active only between open_date and close_date + 1 day
-- [ ] `GET /api/ipos/:id/subscription` — returns full time-series array
+- [x] Scraper: fetch NSE/Chittorgarh subscription data every 2 hours during IPO open days
+- [x] Store: category (QIB, NII, Retail, Employee, Shareholder), times_subscribed, recorded_at
+- [x] Cron: active only between open_date and close_date + 1 day
+- [x] `GET /api/ipos/:id/subscription` — returns full time-series array
 
 ## GMP Tracker
-- [ ] Scraper: fetch GMP from IPO Watch / InvestorGain every 6 hours
-- [ ] Store: gmp_amount, premium_percent, recorded_at — never overwrite, always append
-- [ ] Trend calculation: RISING, FALLING, or STABLE in last 24h
-- [ ] Volatility: stddev of last 5 readings
-- [ ] `GET /api/ipos/:id/gmp` — returns time-series + trend + volatility
+- [x] Scraper: fetch GMP from IPO Watch / InvestorGain every 6 hours
+- [x] Store: gmp_amount, premium_percent, recorded_at — never overwrite, always append
+- [x] Trend calculation: RISING, FALLING, or STABLE in last 24h
+- [x] Volatility: stddev of last 5 readings
+- [x] `GET /api/ipos/:id/gmp` — returns time-series + trend + volatility
 
 ## Deliverables
 - Subscription data updates automatically during IPO window
@@ -668,10 +668,10 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] IPO Calendar Monitor — auto-detects new IPOs
 - [x] Document Downloader — DRHPs saved to storage
 - [x] PDF Parser — structured financials extracted
-- [ ] Download Hardening — every file in storage confirmed complete and parseable
-- [ ] Financial Metrics Calculator — all ratios computed and tested
-- [ ] Peer Comparison — valuation benchmarked against sector
-- [ ] Subscription & GMP Tracker — live demand signals captured
+- [x] Download Hardening — every file in storage confirmed complete and parseable
+- [x] Financial Metrics Calculator — all ratios computed and tested
+- [x] Peer Comparison — valuation benchmarked against sector
+- [x] Subscription & GMP Tracker — live demand signals captured
 - [ ] AI Document Analyzer — Claude returns red flags, not just summaries
 - [ ] Explainable Scoring Engine — every score has a reason string
 - [ ] HTML Report Generator — report auto-produced with AI findings

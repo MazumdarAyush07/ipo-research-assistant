@@ -91,3 +91,53 @@ func (h *IPOHandler) GetAIAnalysis(c *fiber.Ctx) error {
 		"data":   analysis,
 	})
 }
+
+// GetGMP handles GET /api/ipos/:id/gmp
+func (h *IPOHandler) GetGMP(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	gmp, err := h.Queries.GetLatestGMP(c.Context(), int64(id))
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   gmp,
+	})
+}
+
+// TriggerTrackers handles POST /api/trackers/sync
+func (h *IPOHandler) TriggerTrackers(c *fiber.Ctx) error {
+	if h.AsynqClient != nil {
+		taskGMP := asynq.NewTask("tracker:sync_gmp", nil)
+		h.AsynqClient.Enqueue(taskGMP)
+		taskSub := asynq.NewTask("tracker:sync_subscriptions", nil)
+		h.AsynqClient.Enqueue(taskSub)
+	}
+	return c.JSON(fiber.Map{
+		"status":  "success",
+		"message": "Tracker sync triggered for all active IPOs",
+	})
+}
+
+// GetSubscriptions handles GET /api/ipos/:id/subscriptions
+func (h *IPOHandler) GetSubscriptions(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	subs, err := h.Queries.GetLatestSubscription(c.Context(), int64(id))
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   subs,
+	})
+}

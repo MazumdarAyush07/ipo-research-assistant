@@ -68,7 +68,7 @@ The AI supports your decision — it does not replace it.
 | Task Queue | Asynq (Redis-backed) | Async PDF parsing and report generation jobs |
 | Frontend | Next.js 14 (App Router) | React Server Components + Tailwind for the dashboard |
 | PDF Parsing | Python sidecar | pdfplumber for raw text + Gemini AI for strict JSON extraction (Camelot deprecated) |
-| AI | Claude API (Sonnet) | DRHP analysis, risk extraction, explainable recommendations |
+| AI | Gemini API (3.5 Flash Lite) | DRHP analysis, risk extraction, explainable recommendations |
 | Storage | Local FS | DRHPs and generated reports — S3 in V2 |
 | Deployment | Docker Compose (local) | One-command dev; cloud lift deferred to V2 |
 
@@ -130,7 +130,7 @@ ipo-research/
 │     │     ├── workers/        Asynq job handlers
 │     │     ├── scoring/        Explainable scoring engine
 │     │     ├── models/         DB structs (sqlc generated)
-│     │     └── ai/             Claude API client
+│     │     └── ai/             Gemini API client
 │     ├── migrations/           goose .sql files
 │     └── db/query/             .sql files for sqlc
 │
@@ -426,13 +426,13 @@ During an active IPO, the subscription endpoint returns at least 3 data points a
 
 # Phase 10 — AI Document Analyzer
 
-**Goal:** Make Claude think like an analyst, not a summarizer.
+**Goal:** Make Gemini think like an analyst, not a summarizer.
 
 The AI layer should ask adversarial questions — the kind a fund manager would ask before committing capital. Anyone can summarize a DRHP. The value is in surfacing what management doesn't want you to notice.
 
 ## Tasks
 - [ ] Prompt library in `/prompts/` — one file per prompt type, versioned
-- [ ] Go AI client: POST to Claude API with chunked DRHP text
+- [ ] Go AI client: POST to Gemini API with full or chunked DRHP text
 - [ ] Chunking strategy: split by sections (Business, Risk Factors, Financials, Promoters)
 - [ ] Redis cache: AI response per (ipo_id, prompt_version) — avoid re-calling for same DRHP
 - [ ] Store result in `ai_analysis` table (including red_flags and management_assumptions)
@@ -441,7 +441,7 @@ The AI layer should ask adversarial questions — the kind a fund manager would 
 
 ## Prompt Design
 
-The prompt should instruct Claude to act as an analyst, not a summarizer:
+The prompt should instruct Gemini to act as an analyst, not a summarizer:
 
 ```
 You are a senior equity research analyst reviewing this DRHP before an IPO.
@@ -569,7 +569,7 @@ Red Flags (AI identified)
   ✗ Promoter pledged 22% of shares
   ✗ Revenue concentrated in one geography
 
-AI Analyst Summary: [Claude-generated paragraph]
+AI Analyst Summary: [Gemini-generated paragraph]
 ```
 
 ## Done when
@@ -639,7 +639,7 @@ GET    /api/ipos/:id/financials       — computed metrics
 GET    /api/ipos/:id/peers            — peer comparison table
 GET    /api/ipos/:id/subscription     — time-series subscription data
 GET    /api/ipos/:id/gmp              — GMP history + trend
-GET    /api/ipos/:id/ai-analysis      — Claude analyst output
+GET    /api/ipos/:id/ai-analysis      — Gemini analyst output
 GET    /api/ipos/:id/score            — explainable score breakdown
 POST   /api/ipos/:id/report/generate  — trigger HTML report generation
 GET    /api/ipos/:id/report           — serve HTML report
@@ -653,7 +653,7 @@ GET    /api/health                    — service health
 - [ ] Cursor-based pagination on all list endpoints
 - [ ] Request logging middleware (structured JSON logs)
 - [ ] API documentation (OpenAPI auto-generated from Go structs)
-- [ ] Rate limiting on AI endpoints (prevent runaway Claude API costs)
+- [ ] Rate limiting on AI endpoints (Strictly enforce max 250K TPM and 500 RPD for Gemini 3.5 Flash Lite)
 - [ ] Integration tests for every endpoint (Go `httptest`)
 
 ## Done when

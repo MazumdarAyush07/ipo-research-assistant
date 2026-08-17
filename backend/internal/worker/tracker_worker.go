@@ -3,9 +3,13 @@ package worker
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
+	"github.com/MazumdarAyush07/ipo-research/internal/ai"
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/MazumdarAyush07/ipo-research/internal/scraper"
 	"github.com/hibiken/asynq"
@@ -19,10 +23,32 @@ const (
 func (p *Processor) HandleSyncGMPTask(ctx context.Context, t *asynq.Task) error {
 	log.Printf("Starting Task: %s", t.Type())
 
-	// Fetch all ACTIVE and UPCOMING IPOs
-	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
+	// Read allowed sectors from peers config
+	var allowedSectors []string
+	if b, err := os.ReadFile("config/peers.json"); err == nil {
+		var peersConfig map[string]interface{}
+		if err := json.Unmarshal(b, &peersConfig); err == nil {
+			for k := range peersConfig {
+				allowedSectors = append(allowedSectors, k)
+			}
+		}
+	}
+
+	// Initialize Gemini client for Sector Inference
+	aiClient, aiErr := ai.NewGeminiClient(ctx)
+	if aiErr != nil {
+		log.Printf("Warning: Failed to initialize AI client. Sector inference will be skipped: %v", aiErr)
+	} else {
+		defer aiClient.Close()
+	}
+
+	// Fetch the 100 most recent IPOs to ensure we backfill recently CLOSED ones too
+	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
+		Limit:  100,
+		Offset: 0,
+	})
 	if err != nil {
-		log.Printf("Failed to fetch active IPOs for GMP: %v", err)
+		log.Printf("Failed to fetch IPOs for GMP: %v", err)
 		return err
 	}
 
@@ -40,7 +66,7 @@ func (p *Processor) HandleSyncGMPTask(ctx context.Context, t *asynq.Task) error 
 			String: fmt.Sprintf("%.2f", gmpData.PremiumPercent),
 			Valid:  true,
 		}
-		
+
 		gmpAmount := sql.NullString{
 			String: fmt.Sprintf("%.2f", gmpData.GMPAmount),
 			Valid:  true,
@@ -56,6 +82,62 @@ func (p *Processor) HandleSyncGMPTask(ctx context.Context, t *asynq.Task) error 
 			continue
 		}
 		updatedCount++
+
+		// Opportunistically save the price band and listing date into the IPO and valuation tables
+		if (gmpData.PriceBand > 0 && (!ipo.PriceBandHigh.Valid || ipo.PriceBandHigh.String == "" || ipo.PriceBandHigh.String == "0.00")) || (gmpData.ListingDate != "" && !ipo.ListingDate.Valid) {
+			priceBandStr := fmt.Sprintf("%.2f", gmpData.PriceBand)
+			listingTime := ipo.ListingDate
+			if gmpData.ListingDate != "" {
+				layouts := []string{"Monday, January 2, 2006", "January 2, 2006", "02-Jan-2006", "2-Jan-2006", "02-January-2006", "2-January-2006", "January 02, 2006", "January 02 2006"}
+				for _, l := range layouts {
+					// Need to append the year if it's missing, but ipowatch detail pages usually have "August 19, 2026"
+					if t, err := time.Parse(l, gmpData.ListingDate); err == nil {
+						listingTime = sql.NullTime{Time: t, Valid: true}
+						break
+					}
+				}
+			}
+
+			var pbLow, pbHigh sql.NullString
+			if gmpData.PriceBand > 0 {
+				pbLow = sql.NullString{String: priceBandStr, Valid: true}
+				pbHigh = sql.NullString{String: priceBandStr, Valid: true}
+			} else {
+				pbLow = ipo.PriceBandLow
+				pbHigh = ipo.PriceBandHigh
+			}
+
+			sectorStr := ipo.Sector.String
+			if (sectorStr == "" || sectorStr == "Others") && aiClient != nil && gmpData.AboutCompany != "" && len(allowedSectors) > 0 {
+				// Avoid hitting the 15 RPM free tier limit or quota failures
+				time.Sleep(10 * time.Second)
+
+				inferredSector, err := aiClient.InferSector(ctx, gmpData.AboutCompany, allowedSectors)
+				if err == nil && inferredSector != "" {
+					sectorStr = inferredSector
+				}
+			}
+			sector := sql.NullString{String: sectorStr, Valid: sectorStr != ""}
+
+			_, _ = p.Queries.UpdateIPODetails(ctx, models.UpdateIPODetailsParams{
+				ID:            ipo.ID,
+				Sector:        sector,
+				PriceBandLow:  pbLow,
+				PriceBandHigh: pbHigh,
+				ListingDate:   listingTime,
+			})
+
+			if gmpData.PriceBand > 0 {
+				// Also save into the valuation table
+				_, _ = p.Queries.CreateOrUpdateValuation(ctx, models.CreateOrUpdateValuationParams{
+					IpoID:      ipo.ID,
+					IssuePrice: sql.NullString{String: priceBandStr, Valid: true},
+					MarketCap:  sql.NullString{},
+					PeRatio:    sql.NullString{},
+					PbRatio:    sql.NullString{},
+				})
+			}
+		}
 	}
 
 	log.Printf("Finished syncing GMP. Updated %d/%d active IPOs.", updatedCount, len(activeIPOs))
@@ -65,10 +147,13 @@ func (p *Processor) HandleSyncGMPTask(ctx context.Context, t *asynq.Task) error 
 func (p *Processor) HandleSyncSubscriptionsTask(ctx context.Context, t *asynq.Task) error {
 	log.Printf("Starting Task: %s", t.Type())
 
-	// Fetch all ACTIVE and UPCOMING IPOs
-	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
+	// Fetch the 100 most recent IPOs to ensure we backfill recently CLOSED ones too
+	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
+		Limit:  100,
+		Offset: 0,
+	})
 	if err != nil {
-		log.Printf("Failed to fetch active IPOs for Subscriptions: %v", err)
+		log.Printf("Failed to fetch IPOs for Subscriptions: %v", err)
 		return err
 	}
 
@@ -112,5 +197,124 @@ func (p *Processor) HandleSyncSubscriptionsTask(ctx context.Context, t *asynq.Ta
 	}
 
 	log.Printf("Finished syncing Subscriptions. Updated %d/%d active IPOs.", updatedCount, len(activeIPOs))
+	return nil
+}
+
+const TaskSyncValuation = "tracker:sync_valuation"
+
+func (p *Processor) HandleSyncValuationTask(ctx context.Context, t *asynq.Task) error {
+	log.Printf("Starting Task: %s", t.Type())
+
+	// Read allowed sectors from peers config
+	var allowedSectors []string
+	if b, err := os.ReadFile("config/peers.json"); err == nil {
+		var peersConfig map[string]interface{}
+		if err := json.Unmarshal(b, &peersConfig); err == nil {
+			for k := range peersConfig {
+				allowedSectors = append(allowedSectors, k)
+			}
+		}
+	}
+
+	// Initialize Gemini client for Sector Inference (fallback)
+	aiClient, aiErr := ai.NewGeminiClient(ctx)
+	if aiErr != nil {
+		log.Printf("Warning: Failed to initialize AI client. Fallback sector inference will be skipped: %v", aiErr)
+	} else {
+		defer aiClient.Close()
+	}
+
+	// Fetch the 100 most recent IPOs to ensure we backfill CLOSED ones too
+	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
+		Limit:  100,
+		Offset: 0,
+	})
+	if err != nil {
+		log.Printf("Failed to fetch IPOs for Valuation: %v", err)
+		return err
+	}
+
+	updatedCount := 0
+	for _, ipo := range activeIPOs {
+		if !ipo.SourceUrl.Valid || ipo.SourceUrl.String == "" {
+			continue
+		}
+
+		valData, err := scraper.FetchValuationData(ctx, ipo.SourceUrl.String)
+		if err != nil {
+			log.Printf("Valuation not found for IPO %s: %v", ipo.Name, err)
+			continue
+		}
+
+		issuePrice := sql.NullString{String: fmt.Sprintf("%.2f", valData.IssuePrice), Valid: valData.IssuePrice > 0}
+		marketCap := sql.NullString{String: fmt.Sprintf("%.2f", valData.MarketCap), Valid: valData.MarketCap > 0}
+		peRatio := sql.NullString{String: fmt.Sprintf("%.2f", valData.PE), Valid: valData.PE > 0}
+		pbRatio := sql.NullString{String: fmt.Sprintf("%.2f", valData.PB), Valid: valData.PB > 0}
+
+		_, err = p.Queries.CreateOrUpdateValuation(ctx, models.CreateOrUpdateValuationParams{
+			IpoID:      ipo.ID,
+			IssuePrice: issuePrice,
+			MarketCap:  marketCap,
+			PeRatio:    peRatio,
+			PbRatio:    pbRatio,
+		})
+		if err != nil {
+			log.Printf("Failed to insert Valuation for IPO %s: %v", ipo.Name, err)
+		} else {
+			updatedCount++
+		}
+
+		// Retain existing data if scraper couldn't find it
+		sectorStr := ipo.Sector.String
+		if valData.Sector != "" {
+			sectorStr = valData.Sector
+		} else if (sectorStr == "" || sectorStr == "Others") && aiClient != nil && len(allowedSectors) > 0 {
+			// AI Sector Inference FALLBACK (guessing strictly from name since we don't have description)
+			time.Sleep(5 * time.Second) // Respect rate limits
+
+			fallbackPrompt := fmt.Sprintf("We only have the name for this company: %s. Please make your best guess.", ipo.Name)
+			inferredSector, err := aiClient.InferSector(ctx, fallbackPrompt, allowedSectors)
+			if err == nil && inferredSector != "" {
+				sectorStr = inferredSector
+			}
+		}
+		sector := sql.NullString{String: sectorStr, Valid: sectorStr != ""}
+
+		priceLow := ipo.PriceBandLow.String
+		if valData.PriceBandLow > 0 {
+			priceLow = fmt.Sprintf("%.2f", valData.PriceBandLow)
+		}
+		priceBandLow := sql.NullString{String: priceLow, Valid: priceLow != ""}
+
+		priceHigh := ipo.PriceBandHigh.String
+		if valData.PriceBandHigh > 0 {
+			priceHigh = fmt.Sprintf("%.2f", valData.PriceBandHigh)
+		}
+		priceBandHigh := sql.NullString{String: priceHigh, Valid: priceHigh != ""}
+
+		listingTime := ipo.ListingDate
+		if valData.ListingDate != "" {
+			layouts := []string{"Monday, January 2, 2006", "January 2, 2006", "02-Jan-2006", "2-Jan-2006"}
+			for _, l := range layouts {
+				if t, err := time.Parse(l, valData.ListingDate); err == nil {
+					listingTime = sql.NullTime{Time: t, Valid: true}
+					break
+				}
+			}
+		}
+
+		_, err = p.Queries.UpdateIPODetails(ctx, models.UpdateIPODetailsParams{
+			ID:            ipo.ID,
+			Sector:        sector,
+			PriceBandLow:  priceBandLow,
+			PriceBandHigh: priceBandHigh,
+			ListingDate:   listingTime,
+		})
+		if err != nil {
+			log.Printf("Failed to update IPO Details for %s: %v", ipo.Name, err)
+		}
+	}
+
+	log.Printf("Finished syncing Valuation. Updated %d/%d active IPOs.", updatedCount, len(activeIPOs))
 	return nil
 }

@@ -29,5 +29,68 @@
         "CHOLAFIN.NS",
         "SHRIRAMFIN.NS",
         "MUTHOOTFIN.NS"
+    ],
+    "Capital Goods": [
+        "LT.NS",
+        "SIEMENS.NS",
+        "ABB.NS",
+        "BHEL.NS"
+    ],
+    "Consumer Durables": [
+        "VOLTAS.NS",
+        "DIXON.NS",
+        "HAVELLS.NS",
+        "WHIRLPOOL.NS"
+    ],
+    "Construction & Infrastructure": [
+        "DLF.NS",
+        "LODHA.NS",
+        "GODREJPROP.NS",
+        "OBEROIRLTY.NS"
+    ],
+    "Pharmaceuticals": [
+        "SUNPHARMA.NS",
+        "CIPLA.NS",
+        "DRREDDY.NS",
+        "DIVISLAB.NS"
+    ],
+    "Metals & Mining": [
+        "TATASTEEL.NS",
+        "HINDALCO.NS",
+        "JSWSTEEL.NS",
+        "COALINDIA.NS"
+    ],
+    "Chemicals": [
+        "PIDILITIND.NS",
+        "SRF.NS",
+        "NAVINFLUOR.NS",
+        "TATACHEM.NS"
+    ],
+    "Energy & Utilities": [
+        "RELIANCE.NS",
+        "NTPC.NS",
+        "POWERGRID.NS",
+        "TATAPOWER.NS"
+    ],
+    "Logistics & Transport": [
+        "CONCOR.NS",
+        "BLUEDART.NS",
+        "DELHIVERY.NS"
+    ],
+    "Retail & E-commerce": [
+        "TRENT.NS",
+        "AVANTIFEED.NS",
+        "NYKAA.NS",
+        "ZOMATO.NS"
+    ],
+    "Textiles": [
+        "PAGEIND.NS",
+        "KPRMILL.NS",
+        "WELSPUNIND.NS"
+    ],
+    "Agrochemicals": [
+        "UPL.NS",
+        "PIIND.NS",
+        "COROMANDEL.NS"
     ]
 }

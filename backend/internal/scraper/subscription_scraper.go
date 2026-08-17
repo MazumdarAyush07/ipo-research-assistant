@@ -60,7 +60,7 @@ func FetchSubscriptionData(ctx context.Context, sourceUrl string) (*Subscription
 			// So let's extract the number.
 			val := parseTimesSubscribed(valueStr)
 
-			if strings.Contains(category, "qualified institutional") || category == "qib" {
+			if strings.Contains(category, "qualified") || strings.Contains(category, "qib") {
 				data.QIB = val
 			} else if strings.Contains(category, "non-institutional") || strings.Contains(category, "nii") {
 				data.NII = val

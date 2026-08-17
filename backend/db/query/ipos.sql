@@ -42,3 +42,13 @@ SET
     status = $5
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateIPODetails :one
+UPDATE ipos
+SET 
+    sector = $2,
+    price_band_low = $3,
+    price_band_high = $4,
+    listing_date = $5
+WHERE id = $1
+RETURNING *;

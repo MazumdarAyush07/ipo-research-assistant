@@ -126,7 +126,7 @@ func TestScoreSubscriptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			score, _ := scoreSubscriptions(tt.subs)
+			score, _ := scoreSubscriptions(models.Ipo{}, tt.subs)
 			if score != tt.wantScore {
 				t.Errorf("scoreSubscriptions() = %v, want %v", score, tt.wantScore)
 			}

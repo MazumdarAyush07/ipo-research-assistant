@@ -431,13 +431,13 @@ During an active IPO, the subscription endpoint returns at least 3 data points a
 The AI layer should ask adversarial questions — the kind a fund manager would ask before committing capital. Anyone can summarize a DRHP. The value is in surfacing what management doesn't want you to notice.
 
 ## Tasks
-- [ ] Prompt library in `/prompts/` — one file per prompt type, versioned
-- [ ] Go AI client: POST to Gemini API with full or chunked DRHP text
-- [ ] Chunking strategy: split by sections (Business, Risk Factors, Financials, Promoters)
-- [ ] Redis cache: AI response per (ipo_id, prompt_version) — avoid re-calling for same DRHP
-- [ ] Store result in `ai_analysis` table (including red_flags and management_assumptions)
-- [ ] Fallback: if JSON parse fails, store raw text and flag for manual review
-- [ ] `GET /api/ipos/:id/ai-analysis` — returns structured AI output
+- [x] Prompt library in `/prompts/` — one file per prompt type, versioned
+- [x] Go AI client: POST to Gemini API with full or chunked DRHP text
+- [x] Chunking strategy: split by sections (Business, Risk Factors, Financials, Promoters)
+- [x] Redis cache: AI response per (ipo_id, prompt_version) — avoid re-calling for same DRHP
+- [x] Store result in `ai_analysis` table (including red_flags and management_assumptions)
+- [x] Fallback: if JSON parse fails, store raw text and flag for manual review
+- [x] `GET /api/ipos/:id/ai-analysis` — returns structured AI output
 
 ## Prompt Design
 
@@ -514,14 +514,14 @@ Reason: PE of 45x vs peer median 31x — 45% premium.
 ```
 
 ## Tasks
-- [ ] Go scoring package: `ScoreIPO(ipo_id)` — reads from all tables
-- [ ] Scoring function for each module with configurable weights
-- [ ] Each module returns `{ score, reason }` — reason is a plain English string
-- [ ] Recommendation threshold logic
-- [ ] Store all component scores + reasons in `scores` table
-- [ ] Unit tests: edge cases (missing data, partial data, all-max, all-min)
-- [ ] `GET /api/ipos/:id/score` — returns full score breakdown with reasons
-- [ ] Score history: re-score after new data arrives (subscription updates, GMP changes)
+- [x] Go scoring package: `ScoreIPO(ipo_id)` — reads from all tables
+- [x] Scoring function for each module with configurable weights
+- [x] Each module returns `{ score, reason }` — reason is a plain English string
+- [x] Recommendation threshold logic
+- [x] Store all component scores + reasons in `scores` table
+- [x] Unit tests: edge cases (missing data, partial data, all-max, all-min)
+- [x] `GET /api/ipos/:id/score` — returns full score breakdown with reasons
+- [x] Score history: re-score after new data arrives (subscription updates, GMP changes)
 
 ## Done when
 `ScoreIPO()` returns a score AND a reason string for every component. Unit tests cover all edge cases. The reason strings read like a human wrote them.
@@ -673,7 +673,7 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] Peer Comparison — valuation benchmarked against sector
 - [x] Subscription & GMP Tracker — live demand signals captured
 - [x] AI Document Analyzer — Gemini returns red flags, not just summaries
-- [ ] Explainable Scoring Engine — every score has a reason string
+- [x] Explainable Scoring Engine — every score has a reason string
 - [ ] HTML Report Generator — report auto-produced with AI findings
 - [ ] Next.js Dashboard — all data visible end-to-end
 - [ ] Backtesting Engine — scoring model validated against 50+ IPOs

@@ -72,3 +72,29 @@ python3 scripts/audit_financials.py
 - Generates a CSV report (`reports/audit_financials.csv`) containing the extraction results.
 - Highlights "0.0" values which indicate the AI failed to locate the balance sheet tables.
 - Once verified, the data is ready for the Phase 7 Metrics Calculator to compute CAGR, EBITDA Margins, and ROE.
+
+---
+
+## Step 6: Sync Live Trackers (Scrape)
+To feed the scoring engine, you need the latest market sentiment and valuation data.
+
+```bash
+curl -X POST http://localhost:8080/api/trackers/sync
+```
+**What happens under the hood:**
+- The Go worker fires off asynchronous scraping jobs to fetch Live Subscriptions, GMP History, and Valuations (Issue Price, P/E, Market Cap).
+- Uses a fallback AI pipeline to infer the company's sector if it isn't listed.
+- Connects the dots to your peer configuration to establish baseline industry valuations.
+
+---
+
+## Step 7: The Scoring Engine
+With the AI-extracted prospectus data and the live scraped market trackers in place, you can generate the final investment thesis.
+
+```bash
+python3 scripts/trigger_score.py <ipo_id>
+```
+**What happens under the hood:**
+- Consolidates Financial Growth (40 points), Valuation vs Peers (20 points), AI Risk/Promoter/Industry evaluation (30 points), and Live Market Demand (GMP/Subs - 10 points).
+- Computes a final score out of 100.
+- Outputs a definitive recommendation: **Apply**, **Apply with Caution**, or **Avoid**.

@@ -14,6 +14,9 @@ import (
 type GMPData struct {
 	GMPAmount      float64
 	PremiumPercent float64
+	PriceBand      float64 // The issue price from the ipowatch table (Col 3)
+	ListingDate    string  // Extracted from the ipowatch detail page
+	AboutCompany   string  // Extracted from the ipowatch detail page
 }
 
 // FetchGMPData scrapes the GMP from Chittorgarh or InvestorGain.
@@ -64,16 +67,27 @@ func FetchGMPData(ctx context.Context, ipoName string) (*GMPData, error) {
 
 		if strings.Contains(normalizedScraped, normalizedTarget) {
 			// Found it!
-			// On IPOWatch: Col 0: Name, Col 1: GMP, Col 2: Trend, Col 3: Price, Col 4: Est Listing
-			gmpCol := s.Find("td").Eq(1).Text() 
+			// On IPOWatch: Col 0: Name, Col 1: GMP, Col 2: Trend, Col 3: Price Band, Col 4: Est Listing, Col 5: Date, Col 6: Type
+			gmpCol := s.Find("td").Eq(1).Text()
+			priceBandCol := s.Find("td").Eq(3).Text()
 			estPremiumCol := s.Find("td").Eq(4).Text()
 
 			gmpAmount := parseGMPValue(gmpCol)
 			premiumPercent := parsePremiumPercent(estPremiumCol)
+			priceBand := parseGMPValue(priceBandCol)
+
+			var listingDate, aboutCompany string
+			detailURL, exists := s.Find("td").Eq(0).Find("a").Attr("href")
+			if exists && detailURL != "" {
+				listingDate, aboutCompany, _ = fetchIPOWatchListingDate(ctx, detailURL)
+			}
 
 			foundGMP = &GMPData{
 				GMPAmount:      gmpAmount,
 				PremiumPercent: premiumPercent,
+				PriceBand:      priceBand,
+				ListingDate:    listingDate,
+				AboutCompany:   aboutCompany,
 			}
 			return false // break
 		}
@@ -120,4 +134,69 @@ func parsePremiumPercent(s string) float64 {
 	}
 	val, _ := strconv.ParseFloat(clean, 64)
 	return val
+}
+
+func fetchIPOWatchListingDate(ctx context.Context, url string) (string, string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+	
+	res, err := client.Do(req)
+	if err != nil {
+		return "", "", err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		return "", "", fmt.Errorf("status code %d", res.StatusCode)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return "", "", err
+	}
+
+	var listingDate string
+	doc.Find("figure.wp-block-table table tbody tr, table tbody tr").EachWithBreak(func(i int, s *goquery.Selection) bool {
+		label := strings.TrimSpace(s.Find("td").Eq(0).Text())
+		if strings.Contains(strings.ToLower(label), "ipo listing date") {
+			listingDate = strings.TrimSpace(s.Find("td").Eq(1).Text())
+			return false // break
+		}
+		return true // continue
+	})
+
+	var aboutText string
+	doc.Find("h2").EachWithBreak(func(i int, s *goquery.Selection) bool {
+		text := strings.ToLower(strings.TrimSpace(s.Text()))
+		if strings.HasPrefix(text, "about ") {
+			// Find the next sibling p tags and grab their text
+			nextP := s.Next()
+			for nextP.Is("p") {
+				aboutText += nextP.Text() + "\n"
+				nextP = nextP.Next()
+			}
+			return false // break
+		}
+		return true // continue
+	})
+
+	// Fallback
+	if aboutText == "" {
+		doc.Find("p").Each(func(i int, s *goquery.Selection) {
+			text := strings.TrimSpace(s.Text())
+			if len(text) > 150 { // Only grab substantial paragraphs
+				aboutText += text + "\n"
+			}
+		})
+	}
+
+	if len(aboutText) > 4000 {
+		aboutText = aboutText[:4000]
+	}
+
+	return listingDate, aboutText, nil
 }

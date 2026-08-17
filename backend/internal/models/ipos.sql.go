@@ -249,3 +249,47 @@ func (q *Queries) UpdateIPO(ctx context.Context, arg UpdateIPOParams) (Ipo, erro
 	)
 	return i, err
 }
+
+const updateIPODetails = `-- name: UpdateIPODetails :one
+UPDATE ipos
+SET 
+    sector = $2,
+    price_band_low = $3,
+    price_band_high = $4,
+    listing_date = $5
+WHERE id = $1
+RETURNING id, name, exchange_type, sector, price_band_low, price_band_high, open_date, close_date, listing_date, status, source_url
+`
+
+type UpdateIPODetailsParams struct {
+	ID            int64
+	Sector        sql.NullString
+	PriceBandLow  sql.NullString
+	PriceBandHigh sql.NullString
+	ListingDate   sql.NullTime
+}
+
+func (q *Queries) UpdateIPODetails(ctx context.Context, arg UpdateIPODetailsParams) (Ipo, error) {
+	row := q.db.QueryRowContext(ctx, updateIPODetails,
+		arg.ID,
+		arg.Sector,
+		arg.PriceBandLow,
+		arg.PriceBandHigh,
+		arg.ListingDate,
+	)
+	var i Ipo
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ExchangeType,
+		&i.Sector,
+		&i.PriceBandLow,
+		&i.PriceBandHigh,
+		&i.OpenDate,
+		&i.CloseDate,
+		&i.ListingDate,
+		&i.Status,
+		&i.SourceUrl,
+	)
+	return i, err
+}

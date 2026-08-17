@@ -69,6 +69,9 @@ func main() {
 	app.Get("/api/ipos/:id/gmp", ipoHandler.GetGMP)
 	app.Get("/api/ipos/:id/subscriptions", ipoHandler.GetSubscriptions)
 	app.Post("/api/trackers/sync", ipoHandler.TriggerTrackers)
+	
+	app.Get("/api/ipos/:id/score", ipoHandler.GetScore)
+	app.Post("/api/ipos/:id/score/trigger", ipoHandler.TriggerScore)
 
 	// Document endpoints
 	app.Post("/api/ipos/:id/documents/trigger", ipoHandler.TriggerDocumentDownload)

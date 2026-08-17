@@ -86,8 +86,17 @@ func (h *IPOHandler) GetPeers(c *fiber.Ctx) error {
 	}
 
 	// Compute Comparison
-	// Mocking IPO PE as 35.5 for now until we have issue price data
-	ipoPE := 35.5 
+	ipoPE := 0.0
+
+	// Fetch dynamic PE from the valuation table
+	val, err := h.Queries.GetValuationByIPO(c.Context(), ipoID)
+	if err == nil && val.PeRatio.Valid {
+		parsedPE, err := strconv.ParseFloat(val.PeRatio.String, 64)
+		if err == nil {
+			ipoPE = parsedPE
+		}
+	}
+
 	comparison := services.CompareIPOToPeers(ipoPE, peerData)
 
 	return c.JSON(fiber.Map{

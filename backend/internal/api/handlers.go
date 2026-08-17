@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
+	"github.com/MazumdarAyush07/ipo-research/internal/scoring"
 	"github.com/MazumdarAyush07/ipo-research/internal/services"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
@@ -149,6 +150,8 @@ func (h *IPOHandler) TriggerTrackers(c *fiber.Ctx) error {
 		h.AsynqClient.Enqueue(taskGMP)
 		taskSub := asynq.NewTask("tracker:sync_subscriptions", nil)
 		h.AsynqClient.Enqueue(taskSub)
+		taskVal := asynq.NewTask("tracker:sync_valuation", nil)
+		h.AsynqClient.Enqueue(taskVal)
 	}
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -171,5 +174,42 @@ func (h *IPOHandler) GetSubscriptions(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status": "success",
 		"data":   subs,
+	})
+}
+
+// GetScore handles GET /api/ipos/:id/score
+func (h *IPOHandler) GetScore(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	score, err := h.Queries.GetScoreByIPO(c.Context(), int64(id))
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "score not found"})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "success",
+		"data":   score,
+	})
+}
+
+// TriggerScore handles POST /api/ipos/:id/score/trigger
+func (h *IPOHandler) TriggerScore(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	res, err := scoring.ScoreIPO(c.Context(), h.Queries, h.PeerService, int64(id))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to calculate score", "details": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"status":  "success",
+		"message": "Score calculated successfully",
+		"data":    res,
 	})
 }

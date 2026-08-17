@@ -127,3 +127,96 @@ func (c *GeminiClient) MergeAnalyses(ctx context.Context, partials []AIAnalysisR
 
 	return &result, nil
 }
+
+type AIModuleScores struct {
+	PromoterScore  int    `json:"promoter_score"`
+	PromoterReason string `json:"promoter_reason"`
+	IndustryScore  int    `json:"industry_score"`
+	IndustryReason string `json:"industry_reason"`
+	RiskScore      int    `json:"risk_score"`
+	RiskReason     string `json:"risk_reason"`
+}
+
+func (c *GeminiClient) ScoreModules(ctx context.Context, aiAnalysisJSON string, prompt string) (*AIModuleScores, error) {
+	model := c.client.GenerativeModel("gemini-3.5-flash-lite")
+	model.ResponseMIMEType = "application/json"
+
+	fullPrompt := fmt.Sprintf("%s\n\nAI Analysis JSON:\n%s", prompt, aiAnalysisJSON)
+
+	resp, err := model.GenerateContent(ctx, genai.Text(fullPrompt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate scoring content: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return nil, fmt.Errorf("no response returned from scoring model")
+	}
+
+	part := resp.Candidates[0].Content.Parts[0]
+	var textResp string
+	if t, ok := part.(genai.Text); ok {
+		textResp = string(t)
+	} else {
+		return nil, fmt.Errorf("unexpected response type")
+	}
+
+	textResp = strings.TrimPrefix(textResp, "```json")
+	textResp = strings.TrimPrefix(textResp, "```")
+	textResp = strings.TrimSuffix(textResp, "```")
+	textResp = strings.TrimSpace(textResp)
+
+	var result AIModuleScores
+	if err := json.Unmarshal([]byte(textResp), &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal scoring response: %w\nRaw: %s", err, textResp)
+	}
+
+	return &result, nil
+}
+
+type SectorInferenceResult struct {
+	Sector string `json:"sector"`
+}
+
+// InferSector uses Gemini to classify the company description into one of the allowed sectors.
+func (c *GeminiClient) InferSector(ctx context.Context, companyDescription string, allowedSectors []string) (string, error) {
+	model := c.client.GenerativeModel("gemini-3.5-flash-lite")
+	model.ResponseMIMEType = "application/json"
+
+	prompt := fmt.Sprintf(`Given the following company description, classify the company into EXACTLY ONE of the following sectors:
+%s
+
+Respond ONLY with a JSON object containing the key "sector" and the chosen sector as the value. If none fit well, choose the closest or return "Others".
+Example: {"sector": "IT Services"}
+
+Company Description:
+%s`, strings.Join(allowedSectors, ", "), companyDescription)
+
+	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return "", fmt.Errorf("failed to generate sector inference: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("no response returned from inference model")
+	}
+
+	part := resp.Candidates[0].Content.Parts[0]
+	var textResp string
+	if t, ok := part.(genai.Text); ok {
+		textResp = string(t)
+	} else {
+		return "", fmt.Errorf("unexpected response type")
+	}
+
+	textResp = strings.TrimPrefix(textResp, "```json")
+	textResp = strings.TrimPrefix(textResp, "```")
+	textResp = strings.TrimSuffix(textResp, "```")
+	textResp = strings.TrimSpace(textResp)
+
+	var result SectorInferenceResult
+	if err := json.Unmarshal([]byte(textResp), &result); err != nil {
+		return "", fmt.Errorf("failed to unmarshal sector inference response: %w\nRaw: %s", err, textResp)
+	}
+
+	return result.Sector, nil
+}

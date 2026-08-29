@@ -213,3 +213,43 @@ func (h *IPOHandler) TriggerScore(c *fiber.Ctx) error {
 		"data":    res,
 	})
 }
+
+// TriggerReportGeneration handles POST /api/ipos/:id/report/generate
+func (h *IPOHandler) TriggerReportGeneration(c *fiber.Ctx) error {
+	_, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	if h.AsynqClient != nil {
+		payload := []byte(`{"ipo_id":` + c.Params("id") + `}`)
+		task := asynq.NewTask("report:generate", payload)
+		if _, err := h.AsynqClient.Enqueue(task); err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "failed to enqueue report generation task"})
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"status":  "success",
+		"message": "Report generation triggered",
+	})
+}
+
+// GetReport handles GET /api/ipos/:id/report
+func (h *IPOHandler) GetReport(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	report, err := h.Queries.GetReportByIPO(c.Context(), models.GetReportByIPOParams{
+		IpoID:  int64(id),
+		Format: "HTML",
+	})
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "report not found"})
+	}
+
+	// Make the path absolute or relative to the current working directory
+	return c.SendFile(filepath.Clean(filepath.Join("..", report.FilePath)))
+}

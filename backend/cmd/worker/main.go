@@ -62,6 +62,7 @@ func main() {
 	mux.HandleFunc(worker.TaskSyncSubscriptions, proc.HandleSyncSubscriptionsTask)
 	mux.HandleFunc(worker.TaskSyncValuation, proc.HandleSyncValuationTask)
 	mux.HandleFunc(worker.TaskAnalyzeDocument, proc.ProcessTaskAnalyzeDocument)
+	mux.HandleFunc(worker.TaskGenerateReport, proc.HandleGenerateReportTask)
 
 	log.Println("Starting Asynq Worker Server...")
 	if err := srv.Run(mux); err != nil {

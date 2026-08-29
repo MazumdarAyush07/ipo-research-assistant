@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPO Research Report: {{ .IPO.Name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        mono: ['Inter', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                            900: '#134e4a',
+                            950: '#042f2e',
+                        },
+                        dark: {
+                            bg: '#09090b',
+                            surface: '#18181b',
+                            surfaceHover: '#27272a',
+                            border: '#27272a',
+                        }
+                    },
+                    backgroundImage: {
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @page { size: auto; margin: 10mm; }
+        body { 
+            -webkit-print-color-adjust: exact; 
+            print-color-adjust: exact; 
+            background-color: #09090b;
+            color: #f8fafc;
+        }
+        
+        /* Glassmorphism Utilities */
+        .glass-card {
+            background: rgba(24, 24, 27, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 1rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .gradient-text {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+        }
+        .gradient-text-success {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(135deg, #34d399 0%, #059669 100%);
+        }
+        .gradient-text-warning {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+        }
+        .gradient-text-danger {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+        }
+
+        /* Subtle Grid Background for that "Fintech" premium feel */
+        .bg-grid {
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+            -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+        }
+
+        /* Animations */
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-enter {
+            animation: slideUpFade 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+        }
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+        .delay-400 { animation-delay: 400ms; }
+
+        /* Progress Bar Animation */
+        @keyframes fillProgress {
+            from { width: 0; }
+        }
+        .progress-fill {
+            animation: fillProgress 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        
+        /* Table row hover */
+        tbody tr {
+            transition: background-color 0.2s ease;
+        }
+        tbody tr:hover {
+            background-color: rgba(255,255,255,0.02);
+        }
+    </style>
+</head>
+<body class="relative font-sans antialiased min-h-screen text-slate-300">
+    <!-- Grid Background -->
+    <div class="fixed inset-0 bg-grid pointer-events-none z-0"></div>
+    
+    <!-- Top Glow Effect -->
+    <div class="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/20 blur-[120px] pointer-events-none z-0"></div>
+    <div class="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none z-0"></div>
+
+    <div class="relative z-10 max-w-5xl mx-auto my-12 px-4 sm:px-6 lg:px-8">
+        <!-- Header Section -->
+        <header class="glass-card p-10 mb-10 animate-enter">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+                <div class="flex-1">
+                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm text-slate-400 mb-4">
+                        <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span>Generated: {{ .GeneratedAt }}</span>
+                    </div>
+                    <h1 class="text-5xl font-black mb-3 text-white tracking-tight">{{ .IPO.Name }}</h1>
+                    <p class="text-slate-400 text-lg flex items-center gap-3">
+                        <span class="px-3 py-1 bg-slate-800/50 rounded-md text-sm border border-slate-700">{{ if .IPO.Sector.Valid }}{{ .IPO.Sector.String }}{{ else }}Sector N/A{{ end }}</span>
+                        <span class="text-slate-600">&bull;</span>
+                        <span class="px-3 py-1 bg-slate-800/50 rounded-md text-sm border border-slate-700">{{ if .IPO.ExchangeType.Valid }}{{ .IPO.ExchangeType.String }}{{ else }}Mainboard{{ end }}</span>
+                    </p>
+                </div>
+                
+                <!-- Main Score Block -->
+                <div class="flex flex-col items-end">
+                    <div class="relative w-40 h-40 flex items-center justify-center rounded-full bg-dark-surface border-[6px] {{ if ge .FinalScoreInt 75 }}border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]{{ else if ge .FinalScoreInt 50 }}border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.3)]{{ else }}border-rose-500 shadow-[0_0_30px_rgba(225,29,72,0.3)]{{ end }} transition-all duration-500">
+                        <div class="text-center">
+                            <div class="text-5xl font-black text-white leading-none">{{ .FinalScoreInt }}</div>
+                            <div class="text-sm font-semibold text-slate-400 uppercase tracking-widest mt-1">Score</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendation Banner -->
+            <div class="mt-10 p-6 rounded-xl border {{ if eq .RecommendationString "Apply" }}bg-emerald-500/10 border-emerald-500/30{{ else if eq .RecommendationString "Avoid" }}bg-rose-500/10 border-rose-500/30{{ else }}bg-amber-500/10 border-amber-500/30{{ end }} flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm uppercase tracking-widest font-bold text-slate-400 mb-1">AI Analyst Verdict</h3>
+                    <div class="text-2xl font-black {{ if eq .RecommendationString "Apply" }}text-emerald-400{{ else if eq .RecommendationString "Avoid" }}text-rose-400{{ else }}text-amber-400{{ end }}">
+                        {{ if eq .RecommendationString "Apply" }}Strong Apply Recommended{{ else if eq .RecommendationString "Avoid" }}Avoid Investment{{ else }}Neutral / Watch Closely{{ end }}
+                    </div>
+                </div>
+                <div class="hidden sm:block">
+                    {{ if eq .RecommendationString "Apply" }}
+                        <svg class="w-12 h-12 text-emerald-500 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    {{ else if eq .RecommendationString "Avoid" }}
+                        <svg class="w-12 h-12 text-rose-500 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    {{ else }}
+                        <svg class="w-12 h-12 text-amber-500 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    {{ end }}
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content grid -->
+        <main class="space-y-8">
+            
+            <!-- Score Breakdown Section -->
+            <div class="glass-card p-8 animate-enter delay-100">
+                <div class="flex items-center mb-8">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center mr-4">
+                        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white tracking-tight">Factor Breakdown</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Financials Factor -->
+                    <div class="group relative bg-dark-surface p-6 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Financial Health</h3>
+                                <p class="text-sm text-slate-400 mt-1">Growth & Margins</p>
+                            </div>
+                            <div class="text-2xl font-black {{ if ge .FinancialsScoreInt 20 }}text-emerald-400{{ else if ge .FinancialsScoreInt 12 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .FinancialsScoreInt }}<span class="text-sm text-slate-500">/40</span></div>
+                        </div>
+                        <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
+                            <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 progress-fill rounded-full" style="width: {{ printf "%.2f" .FinancialsWidth }}%"></div>
+                        </div>
+                        <p class="text-sm text-slate-300 leading-relaxed">{{ if .Score.FinancialsReason.Valid }}{{ .Score.FinancialsReason.String }}{{ else }}N/A{{ end }}</p>
+                    </div>
+
+                    <!-- Valuation Factor -->
+                    <div class="group relative bg-dark-surface p-6 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Valuation</h3>
+                                <p class="text-sm text-slate-400 mt-1">Pricing vs Peers</p>
+                            </div>
+                            <div class="text-2xl font-black {{ if ge .ValuationScoreInt 12 }}text-emerald-400{{ else if ge .ValuationScoreInt 6 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .ValuationScoreInt }}<span class="text-sm text-slate-500">/20</span></div>
+                        </div>
+                        <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
+                            <div class="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 progress-fill rounded-full" style="width: {{ printf "%.2f" .ValuationWidth }}%"></div>
+                        </div>
+                        <p class="text-sm text-slate-300 leading-relaxed">{{ if .Score.ValuationReason.Valid }}{{ .Score.ValuationReason.String }}{{ else }}N/A{{ end }}</p>
+                    </div>
+
+                    <!-- Market Demand Factor -->
+                    <div class="group relative bg-dark-surface p-6 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Market Demand</h3>
+                                <p class="text-sm text-slate-400 mt-1">GMP & Subscriptions</p>
+                            </div>
+                            <div class="text-2xl font-black {{ if ge .MarketDemandScore 7 }}text-emerald-400{{ else if ge .MarketDemandScore 4 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .MarketDemandScore }}<span class="text-sm text-slate-500">/10</span></div>
+                        </div>
+                        <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
+                            <div class="h-full bg-gradient-to-r from-orange-400 to-rose-400 progress-fill rounded-full" style="width: {{ printf "%.2f" .MarketDemandWidth }}%"></div>
+                        </div>
+                        <div class="flex flex-col gap-2 text-sm text-slate-300">
+                            <div class="flex justify-between"><span class="text-slate-400">Subscriptions (Max 5)</span> <strong class="text-white">{{ if .Score.SubscriptionScore.Valid }}{{ .Score.SubscriptionScore.String }}{{ else }}0{{ end }}</strong></div>
+                            <div class="flex justify-between"><span class="text-slate-400">Grey Market (Max 5)</span> <strong class="text-white">{{ if .Score.GmpScore.Valid }}{{ .Score.GmpScore.String }}{{ else }}0{{ end }}</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- AI Qualitative Factor -->
+                    <div class="group relative bg-dark-surface p-6 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">AI Assessment</h3>
+                                <p class="text-sm text-slate-400 mt-1">Risks & Industry</p>
+                            </div>
+                            <div class="text-2xl font-black {{ if ge .AIAssessmentScore 20 }}text-emerald-400{{ else if ge .AIAssessmentScore 10 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .AIAssessmentScore }}<span class="text-sm text-slate-500">/30</span></div>
+                        </div>
+                        <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
+                            <div class="h-full bg-gradient-to-r from-teal-400 to-emerald-500 progress-fill rounded-full" style="width: {{ printf "%.2f" .AIAssessmentWidth }}%"></div>
+                        </div>
+                        <ul class="text-sm text-slate-300 space-y-2">
+                            <li><span class="text-slate-400">Promoter:</span> {{ if .Score.PromoterReason.Valid }}{{ .Score.PromoterReason.String }}{{ else }}N/A{{ end }}</li>
+                            <li><span class="text-slate-400">Industry:</span> {{ if .Score.IndustryReason.Valid }}{{ .Score.IndustryReason.String }}{{ else }}N/A{{ end }}</li>
+                            <li><span class="text-slate-400">Risk:</span> {{ if .Score.RiskReason.Valid }}{{ .Score.RiskReason.String }}{{ else }}N/A{{ end }}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Findings Section -->
+            <div class="glass-card p-8 animate-enter delay-200">
+                <div class="flex items-center mb-8">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center mr-4">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white tracking-tight">AI Analyst Intelligence</h2>
+                </div>
+
+                <!-- Red Flags -->
+                <div class="bg-rose-500/5 border border-rose-500/20 p-6 rounded-xl mb-8 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+                    <h3 class="text-lg font-bold text-rose-400 mb-3 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        Critical Red Flags
+                    </h3>
+                    <div class="text-sm text-slate-300 leading-relaxed font-mono">
+                        <ul class="list-none space-y-4">
+                            {{ range $index, $flag := .RedFlagsList }}
+                            <li class="flex items-start gap-3">
+                                <svg class="w-5 h-5 text-rose-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <span class="pt-0.5">{{ $flag }}</span>
+                            </li>
+                            {{ else }}
+                            <li>No specific red flags extracted.</li>
+                            {{ end }}
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="p-6 bg-dark-surface rounded-xl border border-white/5">
+                        <h4 class="text-md font-bold text-indigo-400 mb-3 uppercase tracking-wider text-sm">Business & Moat</h4>
+                        <p class="text-sm text-slate-300 leading-relaxed mb-4">{{ if .AI.BusinessModel.Valid }}{{ .AI.BusinessModel.String }}{{ else }}N/A{{ end }}</p>
+                        <div class="bg-indigo-500/10 p-4 rounded-lg border border-indigo-500/20">
+                            <span class="text-xs font-bold text-indigo-300 uppercase block mb-1">Economic Moat</span>
+                            <p class="text-sm text-indigo-100">{{ if .AI.Moat.Valid }}{{ .AI.Moat.String }}{{ else }}N/A{{ end }}</p>
+                        </div>
+                    </div>
+                    <div class="p-6 bg-dark-surface rounded-xl border border-white/5">
+                        <h4 class="text-md font-bold text-amber-400 mb-3 uppercase tracking-wider text-sm">Management Outlook</h4>
+                        <p class="text-sm text-slate-300 leading-relaxed">{{ if .AI.ManagementAssumptions.Valid }}{{ .AI.ManagementAssumptions.String }}{{ else }}N/A{{ end }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financials Table -->
+            <div class="glass-card p-8 animate-enter delay-300">
+                <div class="flex items-center mb-8">
+                    <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center mr-4">
+                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white tracking-tight">Financial Highlights</h2>
+                </div>
+                
+                {{ if .Financials }}
+                <div class="overflow-x-auto rounded-xl border border-white/10 bg-dark-surface">
+                    <table class="w-full text-sm text-left whitespace-nowrap">
+                        <thead class="text-xs text-slate-400 uppercase bg-black/40 border-b border-white/10">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold">Year</th>
+                                <th class="px-6 py-4 font-semibold">Revenue (Cr)</th>
+                                <th class="px-6 py-4 font-semibold">PAT (Cr)</th>
+                                <th class="px-6 py-4 font-semibold">EBITDA (Cr)</th>
+                                <th class="px-6 py-4 font-semibold">Total Debt (Cr)</th>
+                                <th class="px-6 py-4 font-semibold">Equity (Cr)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5 font-mono text-slate-300">
+                            {{ range .Financials }}
+                            <tr>
+                                <td class="px-6 py-4 font-bold text-white">{{ .Year }}</td>
+                                <td class="px-6 py-4">{{ if .Revenue.Valid }}{{ .Revenue.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4 text-emerald-400">{{ if .Pat.Valid }}{{ .Pat.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4">{{ if .Ebitda.Valid }}{{ .Ebitda.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4 text-rose-400">{{ if .TotalDebt.Valid }}{{ .TotalDebt.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4">{{ if .Equity.Valid }}{{ .Equity.String }}{{ else }}-{{ end }}</td>
+                            </tr>
+                            {{ end }}
+                        </tbody>
+                    </table>
+                </div>
+                {{ else }}
+                <div class="p-6 bg-dark-surface rounded-xl border border-white/5 text-center text-slate-500">
+                    No financial data available.
+                </div>
+                {{ end }}
+            </div>
+
+            <!-- Peer Comparison -->
+            <div class="glass-card p-8 animate-enter delay-400">
+                <div class="flex items-center mb-8">
+                    <div class="w-10 h-10 rounded-lg bg-fuchsia-500/20 flex items-center justify-center mr-4">
+                        <svg class="w-6 h-6 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white tracking-tight">Peer Comparison</h2>
+                </div>
+
+                {{ if .Peers }}
+                <div class="overflow-x-auto rounded-xl border border-white/10 bg-dark-surface">
+                    <table class="w-full text-sm text-left whitespace-nowrap">
+                        <thead class="text-xs text-slate-400 uppercase bg-black/40 border-b border-white/10">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold">Company</th>
+                                <th class="px-6 py-4 font-semibold">P/E Ratio</th>
+                                <th class="px-6 py-4 font-semibold">P/B Ratio</th>
+                                <th class="px-6 py-4 font-semibold">ROE %</th>
+                                <th class="px-6 py-4 font-semibold">Market Cap (Cr)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5 font-mono text-slate-300">
+                            <!-- Target IPO Row -->
+                            <tr class="bg-blue-900/20 relative">
+                                <td class="px-6 py-4 font-bold text-white font-sans flex items-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                    {{ .IPO.Name }}
+                                </td>
+                                <td class="px-6 py-4 text-emerald-400">{{ if .Valuation.PeRatio.Valid }}{{ .Valuation.PeRatio.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4">{{ if .Valuation.PbRatio.Valid }}{{ .Valuation.PbRatio.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4 text-slate-500">N/A</td>
+                                <td class="px-6 py-4">{{ if .Valuation.MarketCap.Valid }}{{ .Valuation.MarketCap.String }}{{ else }}-{{ end }}</td>
+                            </tr>
+                            
+                            <!-- Peers -->
+                            {{ range .Peers }}
+                            <tr>
+                                <td class="px-6 py-4 font-medium text-slate-200 font-sans">{{ .Name }}</td>
+                                <td class="px-6 py-4">{{ if .Pe.Valid }}{{ .Pe.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4">{{ if .Pb.Valid }}{{ .Pb.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4">{{ if .Roe.Valid }}{{ .Roe.String }}{{ else }}-{{ end }}</td>
+                                <td class="px-6 py-4">{{ if .MarketCap.Valid }}{{ .MarketCap.String }}{{ else }}-{{ end }}</td>
+                            </tr>
+                            {{ end }}
+                        </tbody>
+                    </table>
+                </div>
+                {{ else }}
+                <div class="p-6 bg-dark-surface rounded-xl border border-white/5 text-center text-slate-500">
+                    No peer comparison data available for this sector.
+                </div>
+                {{ end }}
+            </div>
+        </main>
+        
+        <footer class="mt-12 text-center text-sm text-slate-500 pb-8">
+            <p>&copy; 2026 IPO Research Assistant &bull; Confidential &bull; For Informational Purposes Only</p>
+            <p class="mt-2 opacity-50 text-xs">AI-driven analysis should be used alongside independent financial advising.</p>
+        </footer>
+    </div>
+</body>
+</html>

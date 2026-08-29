@@ -98,3 +98,16 @@ python3 scripts/trigger_score.py <ipo_id>
 - Consolidates Financial Growth (40 points), Valuation vs Peers (20 points), AI Risk/Promoter/Industry evaluation (30 points), and Live Market Demand (GMP/Subs - 10 points).
 - Computes a final score out of 100.
 - Outputs a definitive recommendation: **Apply**, **Apply with Caution**, or **Avoid**.
+
+---
+
+## Step 8: HTML Report Generation
+Finally, generate a beautiful HTML report summarizing all the findings.
+
+```bash
+curl -X POST http://localhost:8080/api/ipos/<ipo_id>/report/generate
+```
+**What happens under the hood:**
+- The Go worker renders the `report.html` Tailwind template using the scored and scraped data.
+- Saves the HTML file in the `/storage/<ipo-slug>/` directory.
+- You can access the final report by calling `GET /api/ipos/<ipo_id>/report`.

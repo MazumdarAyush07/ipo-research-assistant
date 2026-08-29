@@ -535,17 +535,17 @@ Reason: PE of 45x vs peer median 31x — 45% premium.
 # Phase 12 — HTML Report Generator
 
 ---
+# Phase 12 — HTML Report Generator (Complete)
 
 **Goal:** Auto-produce a shareable research report for every IPO. HTML only in V1 — fast to generate, readable in any browser.
 
 ## Tasks
-- [ ] Go template engine: render HTML report from score + financials + AI analysis
-- [ ] Report sections: Summary, Explainable Score Breakdown, Financial Highlights, Peer Comparison, AI Analyst Findings (red flags, management assumptions, boilerplate vs unique risks), Recommendation
-- [ ] Store generated reports in `/reports/{company-slug}/report.html`
-- [ ] Store path + generated_at in `reports` table
-- [ ] `POST /api/ipos/:id/report/generate` — trigger generation (async Asynq job)
-- [ ] `GET /api/ipos/:id/report` — return file path / serve HTML
-- [ ] Regenerate automatically when score is updated
+- [x] Create `templates/report.html` (Tailwind + Typography).
+- [x] Create `internal/worker/report_worker.go` (`asynq` task handler to populate HTML and write to `storage/`).
+- [x] Update `cmd/worker/main.go` to register `report:generate` handler.
+- [x] Expose `POST /api/ipos/:id/report/generate` to trigger the task.
+- [x] Expose `GET /api/ipos/:id/report` to download/view the HTML report.
+- [x] ~Regenerate automatically when score is updated~ (Descoped: manual generation preferred)
 
 ## Sample Report Structure
 

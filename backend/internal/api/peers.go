@@ -60,9 +60,9 @@ func (h *IPOHandler) GetPeers(c *fiber.Ctx) error {
 					IpoID:     ipoID,
 					Name:      p.Name,
 					Ticker:    sql.NullString{String: p.Ticker, Valid: true},
-					Pe:        sql.NullString{String: fmt.Sprintf("%f", p.PE), Valid: true},
-					Pb:        sql.NullString{String: fmt.Sprintf("%f", p.PB), Valid: true},
-					MarketCap: sql.NullString{String: fmt.Sprintf("%f", p.MarketCap), Valid: true},
+					Pe:        sql.NullString{String: fmt.Sprintf("%.2f", p.PE), Valid: true},
+					Pb:        sql.NullString{String: fmt.Sprintf("%.2f", p.PB), Valid: true},
+					MarketCap: sql.NullString{String: fmt.Sprintf("%.2f", p.MarketCap/10000000.0), Valid: true},
 				})
 				
 				peerData = append(peerData, p)

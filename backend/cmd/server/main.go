@@ -73,6 +73,10 @@ func main() {
 	app.Get("/api/ipos/:id/score", ipoHandler.GetScore)
 	app.Post("/api/ipos/:id/score/trigger", ipoHandler.TriggerScore)
 
+	// Report endpoints
+	app.Post("/api/ipos/:id/report/generate", ipoHandler.TriggerReportGeneration)
+	app.Get("/api/ipos/:id/report", ipoHandler.GetReport)
+
 	// Document endpoints
 	app.Post("/api/ipos/:id/documents/trigger", ipoHandler.TriggerDocumentDownload)
 	app.Post("/api/ipos/:id/parse/trigger", ipoHandler.TriggerDocumentParse)

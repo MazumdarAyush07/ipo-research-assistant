@@ -70,12 +70,16 @@ export interface AIAnalysis {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 export async function fetchIPOs(): Promise<IPO[]> {
-  const res = await fetch(`${API_BASE_URL}/ipos`, { next: { revalidate: 60 } });
-  if (!res.ok) throw new Error("Failed to fetch IPOs");
-  const data = await res.json();
-  
-  // Map Go structs to our frontend interface
-  const rawIPOs = data.data || [];
+  let rawIPOs = [];
+  try {
+    const res = await fetch(`${API_BASE_URL}/ipos`, { next: { revalidate: 60 } });
+    if (res.ok) {
+      const data = await res.json();
+      rawIPOs = data.data || [];
+    }
+  } catch (error) {
+    console.warn("Failed to fetch IPOs (backend might be down during build):", error);
+  }
   
   const getString = (val: any): string => {
     if (typeof val === 'string') return val;
@@ -116,20 +120,20 @@ export async function fetchIPODetails(id: string): Promise<{
     subsRes,
     analysisRes
   ] = await Promise.all([
-    fetch(`${API_BASE_URL}/ipos/${id}/score`, { next: { revalidate: 60 } }),
-    fetch(`${API_BASE_URL}/ipos/${id}/financials`, { next: { revalidate: 3600 } }),
-    fetch(`${API_BASE_URL}/ipos/${id}/peers`, { next: { revalidate: 3600 } }),
-    fetch(`${API_BASE_URL}/ipos/${id}/gmp`, { next: { revalidate: 60 } }),
-    fetch(`${API_BASE_URL}/ipos/${id}/subscriptions`, { next: { revalidate: 60 } }),
-    fetch(`${API_BASE_URL}/ipos/${id}/analysis`, { next: { revalidate: 3600 } }),
+    fetch(`${API_BASE_URL}/ipos/${id}/score`, { next: { revalidate: 60 } }).catch(() => null),
+    fetch(`${API_BASE_URL}/ipos/${id}/financials`, { next: { revalidate: 3600 } }).catch(() => null),
+    fetch(`${API_BASE_URL}/ipos/${id}/peers`, { next: { revalidate: 3600 } }).catch(() => null),
+    fetch(`${API_BASE_URL}/ipos/${id}/gmp`, { next: { revalidate: 60 } }).catch(() => null),
+    fetch(`${API_BASE_URL}/ipos/${id}/subscriptions`, { next: { revalidate: 60 } }).catch(() => null),
+    fetch(`${API_BASE_URL}/ipos/${id}/analysis`, { next: { revalidate: 3600 } }).catch(() => null),
   ]);
 
-  const scoreData = await scoreRes.json().catch(() => null);
-  const financialsData = await financialsRes.json().catch(() => null);
-  const peersData = await peersRes.json().catch(() => null);
-  const gmpData = await gmpRes.json().catch(() => null);
-  const subsData = await subsRes.json().catch(() => null);
-  const analysisData = await analysisRes.json().catch(() => null);
+  const scoreData = scoreRes?.ok ? await scoreRes.json().catch(() => null) : null;
+  const financialsData = financialsRes?.ok ? await financialsRes.json().catch(() => null) : null;
+  const peersData = peersRes?.ok ? await peersRes.json().catch(() => null) : null;
+  const gmpData = gmpRes?.ok ? await gmpRes.json().catch(() => null) : null;
+  const subsData = subsRes?.ok ? await subsRes.json().catch(() => null) : null;
+  const analysisData = analysisRes?.ok ? await analysisRes.json().catch(() => null) : null;
 
   const getString = (val: any): string => {
     if (typeof val === 'string') return val;

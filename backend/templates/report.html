@@ -171,7 +171,7 @@
                 <div>
                     <h3 class="text-sm uppercase tracking-widest font-bold text-slate-400 mb-1">AI Analyst Verdict</h3>
                     <div class="text-2xl font-black {{ if eq .RecommendationString "Apply" }}text-emerald-400{{ else if eq .RecommendationString "Avoid" }}text-rose-400{{ else }}text-amber-400{{ end }}">
-                        {{ if eq .RecommendationString "Apply" }}Strong Apply Recommended{{ else if eq .RecommendationString "Avoid" }}Avoid Investment{{ else }}Neutral / Watch Closely{{ end }}
+                        {{ .RecommendationString }}
                     </div>
                 </div>
                 <div class="hidden sm:block">
@@ -209,7 +209,7 @@
                             <div class="text-2xl font-black {{ if ge .FinancialsScoreInt 20 }}text-emerald-400{{ else if ge .FinancialsScoreInt 12 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .FinancialsScoreInt }}<span class="text-sm text-slate-500">/40</span></div>
                         </div>
                         <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
-                            <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 progress-fill rounded-full" style="width: {{ printf "%.2f" .FinancialsWidth }}%"></div>
+                            <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 progress-fill rounded-full" data-width="{{ printf "%.2f" .FinancialsWidth }}%"></div>
                         </div>
                         <p class="text-sm text-slate-300 leading-relaxed">{{ if .Score.FinancialsReason.Valid }}{{ .Score.FinancialsReason.String }}{{ else }}N/A{{ end }}</p>
                     </div>
@@ -224,7 +224,7 @@
                             <div class="text-2xl font-black {{ if ge .ValuationScoreInt 12 }}text-emerald-400{{ else if ge .ValuationScoreInt 6 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .ValuationScoreInt }}<span class="text-sm text-slate-500">/20</span></div>
                         </div>
                         <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
-                            <div class="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 progress-fill rounded-full" style="width: {{ printf "%.2f" .ValuationWidth }}%"></div>
+                            <div class="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 progress-fill rounded-full" data-width="{{ printf "%.2f" .ValuationWidth }}%"></div>
                         </div>
                         <p class="text-sm text-slate-300 leading-relaxed">{{ if .Score.ValuationReason.Valid }}{{ .Score.ValuationReason.String }}{{ else }}N/A{{ end }}</p>
                     </div>
@@ -239,7 +239,7 @@
                             <div class="text-2xl font-black {{ if ge .MarketDemandScore 7 }}text-emerald-400{{ else if ge .MarketDemandScore 4 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .MarketDemandScore }}<span class="text-sm text-slate-500">/10</span></div>
                         </div>
                         <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
-                            <div class="h-full bg-gradient-to-r from-orange-400 to-rose-400 progress-fill rounded-full" style="width: {{ printf "%.2f" .MarketDemandWidth }}%"></div>
+                            <div class="h-full bg-gradient-to-r from-orange-400 to-rose-400 progress-fill rounded-full" data-width="{{ printf "%.2f" .MarketDemandWidth }}%"></div>
                         </div>
                         <div class="flex flex-col gap-2 text-sm text-slate-300">
                             <div class="flex justify-between"><span class="text-slate-400">Subscriptions (Max 5)</span> <strong class="text-white">{{ if .Score.SubscriptionScore.Valid }}{{ .Score.SubscriptionScore.String }}{{ else }}0{{ end }}</strong></div>
@@ -257,7 +257,7 @@
                             <div class="text-2xl font-black {{ if ge .AIAssessmentScore 20 }}text-emerald-400{{ else if ge .AIAssessmentScore 10 }}text-amber-400{{ else }}text-rose-400{{ end }}">{{ .AIAssessmentScore }}<span class="text-sm text-slate-500">/30</span></div>
                         </div>
                         <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-4">
-                            <div class="h-full bg-gradient-to-r from-teal-400 to-emerald-500 progress-fill rounded-full" style="width: {{ printf "%.2f" .AIAssessmentWidth }}%"></div>
+                            <div class="h-full bg-gradient-to-r from-teal-400 to-emerald-500 progress-fill rounded-full" data-width="{{ printf "%.2f" .AIAssessmentWidth }}%"></div>
                         </div>
                         <ul class="text-sm text-slate-300 space-y-2">
                             <li><span class="text-slate-400">Promoter:</span> {{ if .Score.PromoterReason.Valid }}{{ .Score.PromoterReason.String }}{{ else }}N/A{{ end }}</li>
@@ -417,5 +417,13 @@
             <p class="mt-2 opacity-50 text-xs">AI-driven analysis should be used alongside independent financial advising.</p>
         </footer>
     </div>
+
+    <script>
+        document.querySelectorAll('.progress-fill').forEach(el => {
+            if (el.dataset.width) {
+                el.style.width = el.dataset.width;
+            }
+        });
+    </script>
 </body>
 </html>

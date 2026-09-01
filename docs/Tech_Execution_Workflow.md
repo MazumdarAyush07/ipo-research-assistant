@@ -582,20 +582,20 @@ AI Analyst Summary: [Gemini-generated paragraph]
 **Goal:** Visual interface — build this only after all APIs exist.
 
 ## Pages & Components
-- [ ] `/dashboard` — IPO cards grid (score, recommendation, sector, dates)
-- [ ] `/ipo/:id` — Full IPO detail page
-  - [ ] Explainable score breakdown (ring chart per component + reason text)
-  - [ ] Financial highlights table (3Y trend)
-  - [ ] Peer comparison table with premium/discount flag
-  - [ ] Subscription live tracker (updates every 2h during window)
-  - [ ] GMP trend chart (Recharts line graph)
-  - [ ] AI Analyst findings — red flags, management assumptions, unique risks (structured cards)
-  - [ ] View HTML Report button
+- [x] `/dashboard` — IPO cards grid (score, recommendation, sector, dates)
+- [x] `/ipo/:id` — Full IPO detail page
+  - [x] Explainable score breakdown (ring chart per component + reason text)
+  - [x] Financial highlights table (3Y trend)
+  - [x] Peer comparison table with premium/discount flag
+  - [x] Subscription live tracker (updates every 2h during window)
+  - [x] GMP trend chart (Recharts line graph)
+  - [x] AI Analyst findings — red flags, management assumptions, unique risks (structured cards)
+  - [x] View HTML Report button
 - [ ] `/history` — all past IPOs with outcome tracking (listing return, 1M, 6M, 1Y)
-- [ ] Design system: Tailwind + shadcn/ui
-- [ ] Server components for initial data fetch; client components for live data
+- [x] Design system: Tailwind + shadcn/ui
+- [x] Server components for initial data fetch; client components for live data
 - [ ] Loading skeletons for all async data
-- [ ] Mobile responsive (you'll check scores on your phone)
+- [x] Mobile responsive (you'll check scores on your phone)
 
 ## Done when
 All API endpoints are consumed. A full IPO's data is visible end-to-end in the browser — explainable score, financials, peers, GMP, AI red flags, and HTML report link.

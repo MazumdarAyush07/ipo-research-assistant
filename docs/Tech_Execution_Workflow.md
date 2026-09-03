@@ -602,7 +602,43 @@ All API endpoints are consumed. A full IPO's data is visible end-to-end in the b
 
 ---
 
-# Phase 14 — Backtesting Engine
+# Phase 14 — Admin Panel (Pipeline Execution UI)
+
+**Goal:** Build a secure frontend UI to trigger and monitor the tasks defined in `execution_pipeline.md` without needing terminal access.
+
+## Tasks
+- [ ] Add `/admin` route in Next.js (bypass auth for local dev per user request).
+- [ ] Build UI controls to trigger:
+  - Automated Ingestion (`batch_trigger.py`)
+  - Morning Audit (`audit_downloads.py`)
+  - AI Extraction (`batch_parse.py`)
+  - Scoring Engine (`trigger_score.py`)
+  - Trackers Sync (`POST /api/trackers/sync`)
+- [ ] Add visual indicators for task success/failure and live logs.
+
+## Done when
+All pipeline scripts can be triggered via the UI and logs/status can be viewed without the terminal.
+
+---
+
+# Phase 15 — Hosting & Deployment
+
+**Goal:** Deploy the Next.js frontend, Go backend, Python sidecar, and persistent storage to a production environment.
+
+## Tasks
+- [ ] Setup Oracle Cloud Always Free instance (ARM VM) for backend, Redis, and Python sidecar.
+- [ ] Finalize `docker-compose.prod.yml`.
+- [ ] Setup volume mounts for persistent DRHP storage on the VPS.
+- [ ] Deploy Next.js frontend to Vercel (Free Tier).
+- [ ] Maintain Neon DB (Free Tier) or migrate PostgreSQL to the VPS.
+- [ ] Setup CI/CD pipelines (e.g., GitHub Actions) for seamless deployments.
+
+## Done when
+The entire stack is live on the internet, and the admin panel can successfully process an IPO from start to finish on the production server.
+
+---
+
+# Phase 16 — Backtesting Engine
 
 **Goal:** Validate your scoring model against historical IPOs. Without this, your score is an opinion. With this, it's evidence.
 
@@ -625,7 +661,7 @@ Backtest runs on 50+ historical IPOs and produces a correlation table between ea
 
 ---
 
-# Phase 15 — Complete API Layer
+# Phase 17 — Complete API Layer
 
 **Goal:** Wire everything into a clean, documented REST API before V2 work begins.
 
@@ -674,8 +710,9 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] Subscription & GMP Tracker — live demand signals captured
 - [x] AI Document Analyzer — Gemini returns red flags, not just summaries
 - [x] Explainable Scoring Engine — every score has a reason string
-- [ ] HTML Report Generator — report auto-produced with AI findings
-- [ ] Next.js Dashboard — all data visible end-to-end
+- [x] HTML Report Generator — report auto-produced with AI findings
+- [ ] Admin Panel — pipeline execution UI built
+- [ ] Hosting & Deployment — full stack deployed to cloud
 - [ ] Backtesting Engine — scoring model validated against 50+ IPOs
 - [ ] Complete API Layer — all endpoints documented and tested
 

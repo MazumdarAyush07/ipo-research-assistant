@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const countIPOsWithScores = `-- name: CountIPOsWithScores :one
+SELECT COUNT(DISTINCT ipo_id) FROM scores
+`
+
+func (q *Queries) CountIPOsWithScores(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIPOsWithScores)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createOrUpdateScore = `-- name: CreateOrUpdateScore :one
 INSERT INTO scores (
     ipo_id,

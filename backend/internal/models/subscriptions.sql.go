@@ -10,6 +10,23 @@ import (
 	"database/sql"
 )
 
+const countIPOsWithNonZeroSubscriptions = `-- name: CountIPOsWithNonZeroSubscriptions :one
+SELECT COUNT(*) FROM (
+    SELECT ipo_id
+    FROM subscription_data
+    WHERE times_subscribed IS NOT NULL AND times_subscribed > 0
+    GROUP BY ipo_id
+    HAVING COUNT(DISTINCT category) >= 4
+) AS sub
+`
+
+func (q *Queries) CountIPOsWithNonZeroSubscriptions(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIPOsWithNonZeroSubscriptions)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSubscriptionData = `-- name: CreateSubscriptionData :one
 INSERT INTO subscription_data (
     ipo_id,

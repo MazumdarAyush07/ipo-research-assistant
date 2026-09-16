@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const countIPOs = `-- name: CountIPOs :one
+SELECT COUNT(*) FROM ipos
+`
+
+func (q *Queries) CountIPOs(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIPOs)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createIPO = `-- name: CreateIPO :one
 INSERT INTO ipos (
     name,

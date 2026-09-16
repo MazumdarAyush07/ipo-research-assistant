@@ -67,7 +67,36 @@ export interface AIAnalysis {
   unique_risks: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+export interface ParsingAuditStats {
+  total_ipos: number;
+  total_financials: number;
+  missing_parsing: number;
+}
+
+const getApiBaseUrl = () => {
+  if (typeof window === "undefined") {
+    // Server-side rendering (SSR) - running inside Docker container
+    return process.env.NEXT_SERVER_API_URL || "http://backend:8080/api";
+  }
+  // Client-side rendering (CSR) - running in browser
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+export const adminApi = {
+  triggerAllDownloads: async () => {
+    const res = await fetch(`${API_BASE_URL}/admin/downloads/trigger`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to trigger downloads');
+    return res.json();
+  },
+
+  getParsingAudit: async (): Promise<ParsingAuditStats> => {
+    const res = await fetch(`${API_BASE_URL}/admin/parsing-audit`);
+    if (!res.ok) throw new Error('Failed to fetch parsing audit');
+    return res.json();
+  }
+};
 
 export async function fetchIPOs(): Promise<IPO[]> {
   let rawIPOs = [];

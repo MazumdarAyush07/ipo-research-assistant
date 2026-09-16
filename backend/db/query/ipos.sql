@@ -52,3 +52,6 @@ SET
     listing_date = $5
 WHERE id = $1
 RETURNING *;
+
+-- name: CountIPOs :one
+SELECT COUNT(*) FROM ipos;

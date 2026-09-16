@@ -12,6 +12,28 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
+const countIPOsWithAIAnalysis = `-- name: CountIPOsWithAIAnalysis :one
+SELECT COUNT(*) FROM ai_analysis WHERE red_flags IS NOT NULL
+`
+
+func (q *Queries) CountIPOsWithAIAnalysis(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countIPOsWithAIAnalysis)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countParsedIPOs = `-- name: CountParsedIPOs :one
+SELECT COUNT(*) FROM ai_analysis WHERE raw_json IS NOT NULL
+`
+
+func (q *Queries) CountParsedIPOs(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countParsedIPOs)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createOrUpdateAIAnalysis = `-- name: CreateOrUpdateAIAnalysis :one
 INSERT INTO ai_analysis (
     ipo_id,

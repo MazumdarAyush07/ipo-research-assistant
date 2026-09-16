@@ -32,3 +32,10 @@ RETURNING *;
 -- name: GetAIAnalysisByIPO :one
 SELECT * FROM ai_analysis
 WHERE ipo_id = $1;
+
+-- name: CountIPOsWithAIAnalysis :one
+SELECT COUNT(*) FROM ai_analysis WHERE red_flags IS NOT NULL;
+
+-- name: CountParsedIPOs :one
+SELECT COUNT(*) FROM ai_analysis WHERE raw_json IS NOT NULL;
+

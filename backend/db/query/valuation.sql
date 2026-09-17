@@ -14,7 +14,8 @@ SET issue_price = EXCLUDED.issue_price,
     market_cap = EXCLUDED.market_cap,
     pe_ratio = EXCLUDED.pe_ratio,
     pb_ratio = EXCLUDED.pb_ratio,
-    ev_ebitda = EXCLUDED.ev_ebitda
+    ev_ebitda = EXCLUDED.ev_ebitda,
+    updated_at = CURRENT_TIMESTAMP
 RETURNING *;
 
 -- name: GetValuationByIPO :one

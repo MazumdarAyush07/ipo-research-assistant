@@ -17,6 +17,7 @@ import (
 
 	"github.com/MazumdarAyush07/ipo-research/internal/downloader"
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
+	"github.com/MazumdarAyush07/ipo-research/internal/utils"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/hibiken/asynq"
 )
@@ -46,8 +47,7 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 	}
 
 	// Create a safe slug for the folder name
-	slug := strings.ToLower(strings.ReplaceAll(ipo.Name, " ", "-"))
-	slug = strings.ReplaceAll(slug, ".", "")
+	slug := utils.GenerateSlug(ipo.Name)
 
 	// ALWAYS create the directory immediately so the audit script knows the IPO exists
 	// even if the download ultimately fails.

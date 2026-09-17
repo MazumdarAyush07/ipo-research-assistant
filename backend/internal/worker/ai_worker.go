@@ -68,11 +68,23 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 	var partialResults []ai.AIAnalysisResult
 	for i, chunk := range chunks {
 		log.Printf("Analyzing chunk %d/%d for IPO %d", i+1, len(chunks), payload.IPOID)
-		
-		res, err := geminiClient.AnalyzeChunk(ctx, chunk, string(analystPrompt))
+
+		var res *ai.AIAnalysisResult
+		var err error
+		maxRetries := 3
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			res, err = geminiClient.AnalyzeChunk(ctx, chunk, string(analystPrompt))
+			if err == nil {
+				break
+			}
+			log.Printf("Error analyzing chunk %d (attempt %d/%d): %v", i+1, attempt, maxRetries, err)
+			if attempt < maxRetries {
+				time.Sleep(time.Duration(10*attempt) * time.Second) // Exponential-ish backoff
+			}
+		}
+
 		if err != nil {
-			log.Printf("Error analyzing chunk %d: %v", i+1, err)
-			return fmt.Errorf("failed to analyze chunk %d: %w", i+1, err)
+			return fmt.Errorf("failed to analyze chunk %d after %d attempts: %w", i+1, maxRetries, err)
 		}
 		partialResults = append(partialResults, *res)
 
@@ -86,9 +98,19 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 	var finalAnalysis *ai.AIAnalysisResult
 	if len(partialResults) > 1 {
 		log.Printf("Merging %d partial analyses for IPO %d", len(partialResults), payload.IPOID)
-		finalAnalysis, err = geminiClient.MergeAnalyses(ctx, partialResults, string(mergePrompt))
+		maxRetriesMerge := 3
+		for attempt := 1; attempt <= maxRetriesMerge; attempt++ {
+			finalAnalysis, err = geminiClient.MergeAnalyses(ctx, partialResults, string(mergePrompt))
+			if err == nil {
+				break
+			}
+			log.Printf("Error merging analyses (attempt %d/%d): %v", attempt, maxRetriesMerge, err)
+			if attempt < maxRetriesMerge {
+				time.Sleep(time.Duration(10*attempt) * time.Second)
+			}
+		}
 		if err != nil {
-			return fmt.Errorf("failed to merge analyses: %w", err)
+			return fmt.Errorf("failed to merge analyses after %d attempts: %w", maxRetriesMerge, err)
 		}
 	} else if len(partialResults) == 1 {
 		finalAnalysis = &partialResults[0]
@@ -100,6 +122,17 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 	rawJSON, err := json.Marshal(finalAnalysis)
 	if err != nil {
 		return fmt.Errorf("failed to marshal raw json: %w", err)
+	}
+
+	// Update Sector directly into ipos table if AI found one
+	if finalAnalysis.Sector != "" && finalAnalysis.Sector != "Not disclosed" {
+		_, err := processor.Queries.UpdateIPOSector(ctx, models.UpdateIPOSectorParams{
+			ID:     payload.IPOID,
+			Sector: sql.NullString{String: finalAnalysis.Sector, Valid: true},
+		})
+		if err != nil {
+			log.Printf("Warning: failed to update IPO sector to %s: %v", finalAnalysis.Sector, err)
+		}
 	}
 
 	arg := models.CreateOrUpdateAIAnalysisParams{

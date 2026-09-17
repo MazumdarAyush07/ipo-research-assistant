@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
+	"github.com/MazumdarAyush07/ipo-research/internal/utils"
 	"github.com/hibiken/asynq"
 )
 
@@ -169,8 +170,7 @@ func (p *Processor) HandleGenerateReportTask(ctx context.Context, t *asynq.Task)
 
 	// 5. Save HTML file to storage
 	// Convert ipo name to a slug-like string for the directory
-	slug := strings.ToLower(strings.ReplaceAll(ipo.Name, " ", "-"))
-	slug = strings.ReplaceAll(slug, "/", "-")
+	slug := utils.GenerateSlug(ipo.Name)
 	
 	dirPath := filepath.Join("../storage", slug)
 	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {

@@ -7,6 +7,8 @@ import (
 
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/MazumdarAyush07/ipo-research/internal/worker"
+	"github.com/MazumdarAyush07/ipo-research/internal/services"
+	"github.com/redis/go-redis/v9"
 	"github.com/hibiken/asynq"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
@@ -52,8 +54,17 @@ func main() {
 	)
 
 	// Register Handlers
+	// Initialize PeerService
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+	})
+	peerService, err := services.NewPeerService(redisClient, "config/peers.json")
+	if err != nil {
+		log.Printf("Warning: Failed to init PeerService: %v", err)
+	}
+
+	proc := worker.NewProcessor(queries, client, peerService)
 	mux := asynq.NewServeMux()
-	proc := worker.NewProcessor(queries, client)
 
 	mux.HandleFunc(worker.TaskSyncIPOs, proc.HandleSyncIPOsTask)
 	mux.HandleFunc(worker.TaskDownloadDocuments, proc.HandleDownloadDocumentsTask)
@@ -61,6 +72,7 @@ func main() {
 	mux.HandleFunc(worker.TaskSyncGMP, proc.HandleSyncGMPTask)
 	mux.HandleFunc(worker.TaskSyncSubscriptions, proc.HandleSyncSubscriptionsTask)
 	mux.HandleFunc(worker.TaskSyncValuation, proc.HandleSyncValuationTask)
+	mux.HandleFunc(worker.TaskSyncPeers, proc.HandleSyncPeersTask)
 	mux.HandleFunc(worker.TaskAnalyzeDocument, proc.ProcessTaskAnalyzeDocument)
 	mux.HandleFunc(worker.TaskGenerateReport, proc.HandleGenerateReportTask)
 

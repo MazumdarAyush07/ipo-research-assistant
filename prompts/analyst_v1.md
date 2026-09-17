@@ -14,6 +14,7 @@ Questions:
 8. Rate customer concentration 1–10 (10 = one customer = 100% revenue).
 9. Rate promoter credibility: "Strong" | "Adequate" | "Weak" | "Concerns"
 10. Rate litigation risk: "None" | "Minor" | "Significant"
+11. What is the precise sector or industry this company belongs to (e.g. Healthcare, IT Services, Consumer Durables, Financial Services)?
 
 Return ONLY a valid JSON object. No preamble. No explanation.
 The JSON must have the following keys exactly:
@@ -27,5 +28,6 @@ The JSON must have the following keys exactly:
   "industry_outlook": "...",
   "debt_assessment": "...",
   "promoter_risk": "...",
-  "legal_cases": "..."
+  "legal_cases": "...",
+  "sector": "..."
 }

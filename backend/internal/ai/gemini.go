@@ -23,6 +23,7 @@ type AIAnalysisResult struct {
 	DebtAssessment        string `json:"debt_assessment"`
 	PromoterRisk          string `json:"promoter_risk"`
 	LegalCases            string `json:"legal_cases"`
+	Sector                string `json:"sector"`
 }
 
 type GeminiClient struct {

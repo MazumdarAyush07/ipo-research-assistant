@@ -24,3 +24,6 @@ RETURNING *;
 SELECT * FROM financials
 WHERE ipo_id = $1
 ORDER BY year DESC;
+
+-- name: CountIPOsWithFinancials :one
+SELECT COUNT(DISTINCT ipo_id) FROM financials;

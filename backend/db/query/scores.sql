@@ -35,3 +35,7 @@ RETURNING *;
 -- name: GetScoreByIPO :one
 SELECT * FROM scores
 WHERE ipo_id = $1 LIMIT 1;
+
+-- name: CountIPOsWithScores :one
+SELECT COUNT(DISTINCT ipo_id) FROM scores;
+

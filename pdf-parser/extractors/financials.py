@@ -118,12 +118,12 @@ def _ai_fallback(raw_text: str, force_model: str = None) -> List[Dict[str, Any]]
                 logger.error(f"AI extraction failed to parse response: {e}")
                 return []
                 
-        except genai_errors.ClientError as e:
-            if "429" in str(e):
+        except genai_errors.APIError as e:
+            if "429" in str(e) or "503" in str(e):
                 # Extract retry delay from error if available, otherwise use exponential backoff
                 delay = base_delay * (2 ** attempt)
                 logger.warning(
-                    f"Rate limited by Gemini API (attempt {attempt + 1}/{max_retries}). "
+                    f"API Error (rate limit or high demand) from Gemini API (attempt {attempt + 1}/{max_retries}): {e}. "
                     f"Waiting {delay}s before retry..."
                 )
                 if attempt < max_retries - 1:

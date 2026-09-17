@@ -20,5 +20,6 @@ The JSON must have the following keys exactly:
   "industry_outlook": "...",
   "debt_assessment": "...",
   "promoter_risk": "...",
-  "legal_cases": "..."
+  "legal_cases": "...",
+  "sector": "..."
 }

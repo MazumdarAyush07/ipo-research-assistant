@@ -3,13 +3,13 @@
         "APOLLOHOSP.NS",
         "FORTIS.NS",
         "MAXHEALTH.NS",
-        "NARAYANA.NS",
+        "NH.NS",
         "GLOBALVECT.NS"
     ],
-    "Auto Components": [
+    "Automobile & Ancillaries": [
         "BOSCHLTD.NS",
         "SONACOMS.NS",
-        "MINDAIND.NS",
+        "UNOMINDA.NS",
         "ENDURANCE.NS"
     ],
     "IT Services": [
@@ -19,7 +19,7 @@
         "HCLTECH.NS"
     ],
     "FMCG": [
-        "HUL.NS",
+        "HINDUNILVR.NS",
         "ITC.NS",
         "NESTLEIND.NS",
         "BRITANNIA.NS"

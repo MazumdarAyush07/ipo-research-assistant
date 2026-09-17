@@ -9,16 +9,18 @@ import (
 
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/MazumdarAyush07/ipo-research/internal/scraper"
+	"github.com/MazumdarAyush07/ipo-research/internal/services"
 	"github.com/hibiken/asynq"
 )
 
 type Processor struct {
 	Queries     *models.Queries
 	AsynqClient *asynq.Client
+	PeerService *services.PeerService
 }
 
-func NewProcessor(q *models.Queries, client *asynq.Client) *Processor {
-	return &Processor{Queries: q, AsynqClient: client}
+func NewProcessor(q *models.Queries, client *asynq.Client, ps *services.PeerService) *Processor {
+	return &Processor{Queries: q, AsynqClient: client, PeerService: ps}
 }
 
 func (p *Processor) HandleSyncIPOsTask(ctx context.Context, t *asynq.Task) error {

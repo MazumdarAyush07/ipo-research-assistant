@@ -18,6 +18,8 @@ import (
 const (
 	TaskSyncGMP           = "tracker:sync_gmp"
 	TaskSyncSubscriptions = "tracker:sync_subscriptions"
+	TaskSyncValuation     = "tracker:sync_valuation"
+	TaskSyncPeers         = "tracker:sync_peers"
 )
 
 func (p *Processor) HandleSyncGMPTask(ctx context.Context, t *asynq.Task) error {
@@ -200,7 +202,6 @@ func (p *Processor) HandleSyncSubscriptionsTask(ctx context.Context, t *asynq.Ta
 	return nil
 }
 
-const TaskSyncValuation = "tracker:sync_valuation"
 
 func (p *Processor) HandleSyncValuationTask(ctx context.Context, t *asynq.Task) error {
 	log.Printf("Starting Task: %s", t.Type())
@@ -316,5 +317,59 @@ func (p *Processor) HandleSyncValuationTask(ctx context.Context, t *asynq.Task) 
 	}
 
 	log.Printf("Finished syncing Valuation. Updated %d/%d active IPOs.", updatedCount, len(activeIPOs))
+	return nil
+}
+
+func (p *Processor) HandleSyncPeersTask(ctx context.Context, t *asynq.Task) error {
+	log.Printf("Starting Task: sync_peers")
+
+	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get active ipos: %w", err)
+	}
+
+	if p.PeerService == nil {
+		return fmt.Errorf("PeerService is not initialized")
+	}
+
+	updatedCount := 0
+	for _, ipo := range activeIPOs {
+		sector := ipo.Sector.String
+		if !ipo.Sector.Valid || sector == "" || sector == "Others" {
+			continue
+		}
+
+		fetchedPeers, err := p.PeerService.FetchPeersForSector(ctx, sector)
+		if err != nil {
+			log.Printf("Warning: failed to fetch peers for IPO %d (Sector: %s): %v", ipo.ID, sector, err)
+			continue
+		}
+
+		// Delete existing peers
+		err = p.Queries.DeletePeerCompaniesByIPO(ctx, ipo.ID)
+		if err != nil {
+			log.Printf("Error deleting old peers for IPO %d: %v", ipo.ID, err)
+			continue
+		}
+
+		// Insert updated peers
+		for _, peer := range fetchedPeers {
+			_, err = p.Queries.InsertPeerCompany(ctx, models.InsertPeerCompanyParams{
+				IpoID:     ipo.ID,
+				Name:      peer.Name,
+				Ticker:    sql.NullString{String: peer.Ticker, Valid: peer.Ticker != ""},
+				Pe:        sql.NullString{String: fmt.Sprintf("%.2f", peer.PE), Valid: peer.PE != 0},
+				Pb:        sql.NullString{String: fmt.Sprintf("%.2f", peer.PB), Valid: peer.PB != 0},
+				MarketCap: sql.NullString{String: fmt.Sprintf("%.2f", peer.MarketCap), Valid: peer.MarketCap != 0},
+			})
+			if err != nil {
+				log.Printf("Error inserting peer %s for IPO %d: %v", peer.Ticker, ipo.ID, err)
+			}
+		}
+		updatedCount++
+		time.Sleep(5 * time.Second) // Be gentle to Yahoo Finance API
+	}
+
+	log.Printf("Finished syncing Peers. Updated %d/%d active IPOs.", updatedCount, len(activeIPOs))
 	return nil
 }

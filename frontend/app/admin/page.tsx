@@ -22,6 +22,7 @@ export default function AdminDashboard() {
   const [parsingAudit, setParsingAudit] = useState<any>(null);
   const [analysisAudit, setAnalysisAudit] = useState<any>(null);
   const [trackerAudit, setTrackerAudit] = useState<any>(null);
+  const [trackerTimeframe, setTrackerTimeframe] = useState<number>(0);
   const [scoringAudit, setScoringAudit] = useState<any>(null);
   const [reportAudit, setReportAudit] = useState<any>(null);
   const [queues, setQueues] = useState<any[]>([]);
@@ -134,9 +135,9 @@ export default function AdminDashboard() {
   const runTrackerAudit = async () => {
     if (isAuditingTracker) return;
     setIsAuditingTracker(true);
-    addLog("Starting tracker audit...");
+    addLog(`Starting tracker audit (hours: ${trackerTimeframe})...`);
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/tracker-audit`);
+      const res = await fetch(`${API_BASE_URL}/admin/tracker-audit?hours=${trackerTimeframe}`);
       if (res.ok) {
         const data = await res.json();
         setTrackerAudit(data.data || data);
@@ -623,6 +624,16 @@ export default function AdminDashboard() {
                   Tracker Audit
                 </div>
                 <div className="flex items-center gap-3">
+                  <select 
+                    value={trackerTimeframe} 
+                    onChange={(e) => { setTrackerTimeframe(Number(e.target.value)); }}
+                    className="bg-white/5 border border-white/10 rounded-md text-sm text-gray-300 px-2 py-1 outline-none"
+                  >
+                    <option value={3}>Last 3h</option>
+                    <option value={6}>Last 6h</option>
+                    <option value={24}>Last 24h</option>
+                    <option value={0}>All Time</option>
+                  </select>
                   {isAuditingTracker && (
                     <span className="flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-amber-400 opacity-75"></span>
@@ -642,22 +653,20 @@ export default function AdminDashboard() {
               {trackerAudit ? (
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                    <span className="text-gray-400">Total IPOs Tracked</span>
-                    <span className="text-white font-medium">{trackerAudit.total_ipos}</span>
+                    <span className="text-gray-400">Peers Tracked</span>
+                    <span className="text-white font-medium">{trackerAudit.peers_tracked}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                    <span className="text-gray-400">Trackers Synced</span>
-                    <span className="text-emerald-400 font-medium">{trackerAudit.completed}</span>
+                    <span className="text-gray-400">GMP Tracked</span>
+                    <span className="text-white font-medium">{trackerAudit.gmp_tracked}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Missing Trackers</span>
-                    <span className={trackerAudit.missing > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>
-                      {trackerAudit.missing}
-                    </span>
+                  <div className="flex justify-between items-center pb-2">
+                    <span className="text-gray-400">Subscriptions Tracked</span>
+                    <span className="text-white font-medium">{trackerAudit.subscriptions_tracked}</span>
                   </div>
                 </div>
               ) : (
-                <div className="text-gray-500 text-sm text-center py-4">Data not loaded.</div>
+                <div className="text-gray-500 text-sm text-center py-4">Click refresh to load audit data</div>
               )}
             </div>
 

@@ -55,3 +55,9 @@ RETURNING *;
 
 -- name: CountIPOs :one
 SELECT COUNT(*) FROM ipos;
+
+-- name: UpdateIPOSector :one
+UPDATE ipos
+SET sector = $2
+WHERE id = $1
+RETURNING *;

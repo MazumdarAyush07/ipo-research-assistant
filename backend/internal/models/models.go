@@ -91,6 +91,7 @@ type PeerCompany struct {
 	EvEbitda  sql.NullString
 	Roe       sql.NullString
 	MarketCap sql.NullString
+	CreatedAt sql.NullTime
 }
 
 type Report struct {

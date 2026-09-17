@@ -124,6 +124,17 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 		return fmt.Errorf("failed to marshal raw json: %w", err)
 	}
 
+	// Update Sector directly into ipos table if AI found one
+	if finalAnalysis.Sector != "" && finalAnalysis.Sector != "Not disclosed" {
+		_, err := processor.Queries.UpdateIPOSector(ctx, models.UpdateIPOSectorParams{
+			ID:     payload.IPOID,
+			Sector: sql.NullString{String: finalAnalysis.Sector, Valid: true},
+		})
+		if err != nil {
+			log.Printf("Warning: failed to update IPO sector to %s: %v", finalAnalysis.Sector, err)
+		}
+	}
+
 	arg := models.CreateOrUpdateAIAnalysisParams{
 		IpoID:                 payload.IPOID,
 		BusinessModel:         sql.NullString{String: finalAnalysis.BusinessModel, Valid: true},

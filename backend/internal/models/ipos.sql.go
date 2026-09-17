@@ -304,3 +304,34 @@ func (q *Queries) UpdateIPODetails(ctx context.Context, arg UpdateIPODetailsPara
 	)
 	return i, err
 }
+
+const updateIPOSector = `-- name: UpdateIPOSector :one
+UPDATE ipos
+SET sector = $2
+WHERE id = $1
+RETURNING id, name, exchange_type, sector, price_band_low, price_band_high, open_date, close_date, listing_date, status, source_url
+`
+
+type UpdateIPOSectorParams struct {
+	ID     int64
+	Sector sql.NullString
+}
+
+func (q *Queries) UpdateIPOSector(ctx context.Context, arg UpdateIPOSectorParams) (Ipo, error) {
+	row := q.db.QueryRowContext(ctx, updateIPOSector, arg.ID, arg.Sector)
+	var i Ipo
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ExchangeType,
+		&i.Sector,
+		&i.PriceBandLow,
+		&i.PriceBandHigh,
+		&i.OpenDate,
+		&i.CloseDate,
+		&i.ListingDate,
+		&i.Status,
+		&i.SourceUrl,
+	)
+	return i, err
+}

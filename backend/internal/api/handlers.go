@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
@@ -187,6 +188,8 @@ func (h *IPOHandler) TriggerTrackers(c *fiber.Ctx) error {
 		h.AsynqClient.Enqueue(taskSub)
 		taskVal := asynq.NewTask("tracker:sync_valuation", nil, asynq.Retention(24*time.Hour))
 		h.AsynqClient.Enqueue(taskVal)
+		taskPeers := asynq.NewTask("tracker:sync_peers", nil, asynq.Retention(24*time.Hour))
+		h.AsynqClient.Enqueue(taskPeers)
 	}
 	return c.JSON(fiber.Map{
 		"status":  "success",
@@ -338,6 +341,18 @@ func (h *IPOHandler) GetQueueStats(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list queues", "details": err.Error()})
 	}
 
+	// Always ensure we check our core queues even if the set was somehow dropped from Redis
+	knownQueues := []string{"default", "critical"}
+	queueSet := make(map[string]bool)
+	for _, q := range queues {
+		queueSet[q] = true
+	}
+	for _, q := range knownQueues {
+		if !queueSet[q] {
+			queues = append(queues, q)
+		}
+	}
+
 	var stats []interface{}
 	for _, qname := range queues {
 		info, err := h.AsynqInspector.GetQueueInfo(qname)
@@ -386,21 +401,34 @@ func (h *IPOHandler) GetAnalysisAudit(c *fiber.Ctx) error {
 func (h *IPOHandler) GetTrackerAudit(c *fiber.Ctx) error {
 	ctx := c.Context()
 
-	totalIPOs, err := h.Queries.CountIPOs(ctx)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to count IPOs"})
+	hoursStr := c.Query("hours", "0")
+	var hours int32
+	if h, err := strconv.Atoi(hoursStr); err == nil {
+		hours = int32(h)
 	}
 
-	trackerCount, err := h.Queries.CountIPOsWithNonZeroSubscriptions(ctx)
+	peersTracked, err := h.Queries.CountRecentPeersTracked(ctx, hours)
 	if err != nil {
-		log.Printf("Tracker audit db error: %v", err)
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to count trackers", "details": err.Error()})
+		log.Printf("Tracker audit db error (peers): %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to count peers tracked"})
+	}
+
+	gmpTracked, err := h.Queries.CountRecentGMPTracked(ctx, hours)
+	if err != nil {
+		log.Printf("Tracker audit db error (gmp): %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to count gmp tracked"})
+	}
+
+	subscriptionsTracked, err := h.Queries.CountRecentSubscriptionsTracked(ctx, hours)
+	if err != nil {
+		log.Printf("Tracker audit db error (subscriptions): %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to count subscriptions tracked"})
 	}
 
 	return c.JSON(fiber.Map{
-		"total_ipos": totalIPOs,
-		"completed":  trackerCount,
-		"missing":    totalIPOs - trackerCount,
+		"peers_tracked":         peersTracked,
+		"gmp_tracked":           gmpTracked,
+		"subscriptions_tracked": subscriptionsTracked,
 	})
 }
 

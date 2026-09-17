@@ -21,7 +21,7 @@ func (q *Queries) DeletePeerCompaniesByIPO(ctx context.Context, ipoID int64) err
 }
 
 const getPeerCompaniesByIPO = `-- name: GetPeerCompaniesByIPO :many
-SELECT id, ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap FROM peer_companies
+SELECT id, ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap, created_at FROM peer_companies
 WHERE ipo_id = $1
 ORDER BY market_cap DESC
 `
@@ -45,6 +45,7 @@ func (q *Queries) GetPeerCompaniesByIPO(ctx context.Context, ipoID int64) ([]Pee
 			&i.EvEbitda,
 			&i.Roe,
 			&i.MarketCap,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -64,7 +65,7 @@ INSERT INTO peer_companies (
     ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap
+) RETURNING id, ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap, created_at
 `
 
 type InsertPeerCompanyParams struct {
@@ -100,6 +101,7 @@ func (q *Queries) InsertPeerCompany(ctx context.Context, arg InsertPeerCompanyPa
 		&i.EvEbitda,
 		&i.Roe,
 		&i.MarketCap,
+		&i.CreatedAt,
 	)
 	return i, err
 }

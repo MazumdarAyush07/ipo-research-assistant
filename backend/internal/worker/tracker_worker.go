@@ -45,10 +45,7 @@ func (p *Processor) HandleSyncGMPTask(ctx context.Context, t *asynq.Task) error 
 	}
 
 	// Fetch the 100 most recent IPOs to ensure we backfill recently CLOSED ones too
-	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
-		Limit:  100,
-		Offset: 0,
-	})
+	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
 	if err != nil {
 		log.Printf("Failed to fetch IPOs for GMP: %v", err)
 		return err
@@ -150,10 +147,7 @@ func (p *Processor) HandleSyncSubscriptionsTask(ctx context.Context, t *asynq.Ta
 	log.Printf("Starting Task: %s", t.Type())
 
 	// Fetch the 100 most recent IPOs to ensure we backfill recently CLOSED ones too
-	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
-		Limit:  100,
-		Offset: 0,
-	})
+	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
 	if err != nil {
 		log.Printf("Failed to fetch IPOs for Subscriptions: %v", err)
 		return err
@@ -226,10 +220,7 @@ func (p *Processor) HandleSyncValuationTask(ctx context.Context, t *asynq.Task) 
 	}
 
 	// Fetch the 100 most recent IPOs to ensure we backfill CLOSED ones too
-	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
-		Limit:  100,
-		Offset: 0,
-	})
+	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
 	if err != nil {
 		log.Printf("Failed to fetch IPOs for Valuation: %v", err)
 		return err
@@ -323,12 +314,9 @@ func (p *Processor) HandleSyncValuationTask(ctx context.Context, t *asynq.Task) 
 func (p *Processor) HandleSyncPeersTask(ctx context.Context, t *asynq.Task) error {
 	log.Printf("Starting Task: sync_peers")
 
-	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
-		Limit:  1000,
-		Offset: 0,
-	})
+	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get ipos: %w", err)
+		return fmt.Errorf("failed to get active ipos: %w", err)
 	}
 
 	if p.PeerService == nil {

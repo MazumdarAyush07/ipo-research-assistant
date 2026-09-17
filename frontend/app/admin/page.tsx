@@ -754,11 +754,23 @@ export default function AdminDashboard() {
                     <span className="text-gray-400">Reports Generated</span>
                     <span className="text-emerald-400 font-medium">{reportAudit.completed}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Missing Reports</span>
-                    <span className={reportAudit.missing > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>
-                      {reportAudit.missing}
-                    </span>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">Missing Reports</span>
+                      <span className={reportAudit.missing > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>
+                        {reportAudit.missing}
+                      </span>
+                    </div>
+                    {reportAudit.missing > 0 && reportAudit.missing_names && (
+                      <div className="text-xs text-rose-300/80 bg-rose-500/10 p-2 rounded-md max-h-32 overflow-y-auto mt-1">
+                        <span className="block mb-1 font-medium text-rose-300 border-b border-rose-500/20 pb-1">Missing:</span>
+                        <ul className="list-disc list-inside space-y-1">
+                          {reportAudit.missing_names.map((name: string, i: number) => (
+                            <li key={i} className="truncate" title={name}>{name}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

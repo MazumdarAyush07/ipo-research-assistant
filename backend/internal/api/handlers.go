@@ -252,6 +252,17 @@ func (h *IPOHandler) TriggerScore(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
 	}
 
+	ipo, err := h.Queries.GetIPO(c.Context(), int64(id))
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "IPO not found"})
+	}
+	if ipo.Status.String != "ACTIVE" && ipo.Status.String != "UPCOMING" {
+		return c.JSON(fiber.Map{
+			"status":  "skipped",
+			"message": "IPO is not active or upcoming",
+		})
+	}
+
 	res, err := scoring.ScoreIPO(c.Context(), h.Queries, h.PeerService, int64(id))
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to calculate score", "details": err.Error()})
@@ -269,6 +280,17 @@ func (h *IPOHandler) TriggerReportGeneration(c *fiber.Ctx) error {
 	ipoID, err := c.ParamsInt("id")
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid ipo id"})
+	}
+
+	ipo, err := h.Queries.GetIPO(c.Context(), int64(ipoID))
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "IPO not found"})
+	}
+	if ipo.Status.String != "ACTIVE" && ipo.Status.String != "UPCOMING" {
+		return c.JSON(fiber.Map{
+			"status":  "skipped",
+			"message": "IPO is not active or upcoming",
+		})
 	}
 
 	if h.AsynqClient != nil {
@@ -490,6 +512,7 @@ func (h *IPOHandler) GetReportAudit(c *fiber.Ctx) error {
 	}
 
 	completed := int64(0)
+	missingList := []string{}
 	for _, ipo := range ipos {
 		slug := utils.GenerateSlug(ipo.Name)
 		path := filepath.Join("../storage", slug, "report.html")
@@ -497,12 +520,15 @@ func (h *IPOHandler) GetReportAudit(c *fiber.Ctx) error {
 		info, err := os.Stat(path)
 		if err == nil && !info.IsDir() {
 			completed++
+		} else {
+			missingList = append(missingList, ipo.Name)
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"total_ipos": totalIPOs,
-		"completed":  completed,
-		"missing":    totalIPOs - completed,
+		"total_ipos":    totalIPOs,
+		"completed":     completed,
+		"missing":       totalIPOs - completed,
+		"missing_names": missingList,
 	})
 }

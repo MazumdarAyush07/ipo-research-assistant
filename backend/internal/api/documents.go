@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"os"
 	"strconv"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/utils"
@@ -21,6 +22,21 @@ func (h *IPOHandler) TriggerDocumentDownload(c *fiber.Ctx) error {
 
 	if h.AsynqClient == nil {
 		return c.Status(500).JSON(fiber.Map{"error": "asynq client not configured"})
+	}
+
+	ipo, err := h.Queries.GetIPO(c.Context(), ipoID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "IPO not found"})
+	}
+
+	slug := utils.GenerateSlug(ipo.Name)
+	path := "../storage/" + slug + "/drhp.pdf"
+	// Check if already downloaded
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		return c.JSON(fiber.Map{
+			"status":  "skipped",
+			"message": "DRHP already downloaded",
+		})
 	}
 
 	payload, _ := json.Marshal(worker.DownloadDocumentsPayload{IPOID: ipoID})

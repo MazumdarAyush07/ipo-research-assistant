@@ -9,7 +9,7 @@ import (
 
 func TestListIPOs(t *testing.T) {
 	app := fiber.New()
-	handler := NewIPOHandler(nil, nil, nil)
+	handler := NewIPOHandler(nil, nil, nil, nil)
 
 	app.Get("/api/ipos", handler.ListIPOs)
 
@@ -26,7 +26,7 @@ func TestListIPOs(t *testing.T) {
 
 func TestManualSyncIPOs(t *testing.T) {
 	app := fiber.New()
-	handler := NewIPOHandler(nil, nil, nil)
+	handler := NewIPOHandler(nil, nil, nil, nil)
 
 	app.Post("/api/ipos", handler.ManualSyncIPOs)
 

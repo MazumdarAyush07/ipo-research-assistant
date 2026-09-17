@@ -8,7 +8,7 @@ import (
 )
 
 func TestHandleSyncGMPTask(t *testing.T) {
-	processor := NewProcessor(nil, nil)
+	processor := NewProcessor(nil, nil, nil)
 	
 	// Create a dummy task
 	task := asynq.NewTask(TaskSyncGMP, nil)
@@ -27,7 +27,7 @@ func TestHandleSyncGMPTask(t *testing.T) {
 }
 
 func TestHandleSyncSubscriptionsTask(t *testing.T) {
-	processor := NewProcessor(nil, nil)
+	processor := NewProcessor(nil, nil, nil)
 	
 	// Create a dummy task
 	task := asynq.NewTask(TaskSyncSubscriptions, nil)

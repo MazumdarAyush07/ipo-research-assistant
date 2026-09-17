@@ -197,6 +197,18 @@ func (h *IPOHandler) TriggerTrackers(c *fiber.Ctx) error {
 	})
 }
 
+// TriggerSyncPeers handles POST /api/trackers/peers/sync
+func (h *IPOHandler) TriggerSyncPeers(c *fiber.Ctx) error {
+	if h.AsynqClient != nil {
+		taskPeers := asynq.NewTask("tracker:sync_peers", nil, asynq.Retention(24*time.Hour))
+		h.AsynqClient.Enqueue(taskPeers)
+	}
+	return c.JSON(fiber.Map{
+		"status":  "success",
+		"message": "Peer sync triggered for all IPOs",
+	})
+}
+
 // GetSubscriptions handles GET /api/ipos/:id/subscriptions
 func (h *IPOHandler) GetSubscriptions(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
@@ -425,10 +437,17 @@ func (h *IPOHandler) GetTrackerAudit(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to count subscriptions tracked"})
 	}
 
+	valuationsTracked, err := h.Queries.CountRecentValuationsTracked(ctx, hours)
+	if err != nil {
+		log.Printf("Tracker audit db error (valuations): %v", err)
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to count valuations tracked"})
+	}
+
 	return c.JSON(fiber.Map{
 		"peers_tracked":         peersTracked,
 		"gmp_tracked":           gmpTracked,
 		"subscriptions_tracked": subscriptionsTracked,
+		"valuations_tracked":    valuationsTracked,
 	})
 }
 

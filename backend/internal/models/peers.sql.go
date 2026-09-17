@@ -62,10 +62,18 @@ func (q *Queries) GetPeerCompaniesByIPO(ctx context.Context, ipoID int64) ([]Pee
 
 const insertPeerCompany = `-- name: InsertPeerCompany :one
 INSERT INTO peer_companies (
-    ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap
+    ipo_id,
+    name,
+    ticker,
+    pe,
+    pb,
+    ev_ebitda,
+    roe,
+    market_cap
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING id, ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap, created_at
+)
+RETURNING id, ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap, created_at
 `
 
 type InsertPeerCompanyParams struct {
@@ -79,6 +87,7 @@ type InsertPeerCompanyParams struct {
 	MarketCap sql.NullString
 }
 
+// Cache buster for prepared statements
 func (q *Queries) InsertPeerCompany(ctx context.Context, arg InsertPeerCompanyParams) (PeerCompany, error) {
 	row := q.db.QueryRowContext(ctx, insertPeerCompany,
 		arg.IpoID,

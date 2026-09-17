@@ -323,9 +323,12 @@ func (p *Processor) HandleSyncValuationTask(ctx context.Context, t *asynq.Task) 
 func (p *Processor) HandleSyncPeersTask(ctx context.Context, t *asynq.Task) error {
 	log.Printf("Starting Task: sync_peers")
 
-	activeIPOs, err := p.Queries.GetActiveIPOs(ctx)
+	activeIPOs, err := p.Queries.ListIPOs(ctx, models.ListIPOsParams{
+		Limit:  1000,
+		Offset: 0,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get active ipos: %w", err)
+		return fmt.Errorf("failed to get ipos: %w", err)
 	}
 
 	if p.PeerService == nil {

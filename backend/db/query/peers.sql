@@ -1,9 +1,18 @@
 -- name: InsertPeerCompany :one
+-- Cache buster for prepared statements
 INSERT INTO peer_companies (
-    ipo_id, name, ticker, pe, pb, ev_ebitda, roe, market_cap
+    ipo_id,
+    name,
+    ticker,
+    pe,
+    pb,
+    ev_ebitda,
+    roe,
+    market_cap
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
-) RETURNING *;
+)
+RETURNING *;
 
 -- name: GetPeerCompaniesByIPO :many
 SELECT * FROM peer_companies

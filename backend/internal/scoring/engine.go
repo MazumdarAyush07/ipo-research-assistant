@@ -102,9 +102,22 @@ func ScoreIPO(ctx context.Context, queries *models.Queries, peerService *service
 		result.RiskReason = "No AI analysis available."
 	}
 
-	// 7. Calculate Total and Recommendation
-	result.TotalScore = result.FinancialsScore + result.ValuationScore + result.PromoterScore +
+	rawTotal := result.FinancialsScore + result.ValuationScore + result.PromoterScore +
 		result.IndustryScore + result.RiskScore + result.SubscriptionScore + result.GmpScore
+
+	maxPossible := 100
+	if result.SubscriptionReason == "No subscription data available yet." {
+		maxPossible -= 5
+	}
+	if result.GmpReason == "No GMP data available." {
+		maxPossible -= 5
+	}
+
+	if maxPossible < 100 && maxPossible > 0 {
+		result.TotalScore = int((float64(rawTotal) / float64(maxPossible)) * 100)
+	} else {
+		result.TotalScore = rawTotal
+	}
 
 	if result.TotalScore >= 75 {
 		result.Recommendation = "Apply"

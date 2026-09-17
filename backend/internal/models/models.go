@@ -138,4 +138,5 @@ type Valuation struct {
 	PeRatio    sql.NullString
 	PbRatio    sql.NullString
 	EvEbitda   sql.NullString
+	UpdatedAt  sql.NullTime
 }

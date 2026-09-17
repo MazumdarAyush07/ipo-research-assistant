@@ -62,10 +62,20 @@ func FetchGMPData(ctx context.Context, ipoName string) (*GMPData, error) {
 		nameCol := s.Find("td").Eq(0).Text()
 		
 		normalizedScraped := strings.ToLower(strings.ReplaceAll(nameCol, " ", ""))
+		normalizedScraped = strings.ReplaceAll(normalizedScraped, "ipo", "")
+		
 		normalizedTarget := strings.ToLower(strings.ReplaceAll(ipoName, " ", ""))
 		normalizedTarget = strings.ReplaceAll(normalizedTarget, "ipo", "")
 
-		if strings.Contains(normalizedScraped, normalizedTarget) {
+		// Strip common suffixes that might be present in the DB but omitted by IPOWatch
+		for _, suffix := range []string{"ltd", "limited", "company", "inc", "(india)"} {
+			normalizedScraped = strings.ReplaceAll(normalizedScraped, suffix, "")
+			normalizedTarget = strings.ReplaceAll(normalizedTarget, suffix, "")
+		}
+
+		// A match is found if either string contains the other (e.g. 'tempsensinstruments' is contained within 'tempsensinstruments(india)')
+		// We add a basic length check to prevent false positives from tiny substrings
+		if len(normalizedScraped) > 4 && len(normalizedTarget) > 4 && (strings.Contains(normalizedScraped, normalizedTarget) || strings.Contains(normalizedTarget, normalizedScraped)) {
 			// Found it!
 			// On IPOWatch: Col 0: Name, Col 1: GMP, Col 2: Trend, Col 3: Price Band, Col 4: Est Listing, Col 5: Date, Col 6: Type
 			gmpCol := s.Find("td").Eq(1).Text()

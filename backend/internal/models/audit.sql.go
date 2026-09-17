@@ -47,3 +47,16 @@ func (q *Queries) CountRecentSubscriptionsTracked(ctx context.Context, dollar_1 
 	err := row.Scan(&count)
 	return count, err
 }
+
+const countRecentValuationsTracked = `-- name: CountRecentValuationsTracked :one
+SELECT COUNT(DISTINCT ipo_id)
+FROM valuation
+WHERE ($1::int = 0 OR updated_at >= NOW() - ($1::int * INTERVAL '1 hour'))
+`
+
+func (q *Queries) CountRecentValuationsTracked(ctx context.Context, dollar_1 int32) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRecentValuationsTracked, dollar_1)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}

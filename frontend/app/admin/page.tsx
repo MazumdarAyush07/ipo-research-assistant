@@ -660,9 +660,13 @@ export default function AdminDashboard() {
                     <span className="text-gray-400">GMP Tracked</span>
                     <span className="text-white font-medium">{trackerAudit.gmp_tracked}</span>
                   </div>
-                  <div className="flex justify-between items-center pb-2">
+                  <div className="flex justify-between items-center pb-2 border-b border-white/5">
                     <span className="text-gray-400">Subscriptions Tracked</span>
                     <span className="text-white font-medium">{trackerAudit.subscriptions_tracked}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-2">
+                    <span className="text-gray-400">Valuations Tracked</span>
+                    <span className="text-white font-medium">{trackerAudit.valuations_tracked}</span>
                   </div>
                 </div>
               ) : (

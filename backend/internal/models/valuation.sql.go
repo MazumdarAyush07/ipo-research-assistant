@@ -26,8 +26,9 @@ SET issue_price = EXCLUDED.issue_price,
     market_cap = EXCLUDED.market_cap,
     pe_ratio = EXCLUDED.pe_ratio,
     pb_ratio = EXCLUDED.pb_ratio,
-    ev_ebitda = EXCLUDED.ev_ebitda
-RETURNING id, ipo_id, issue_price, market_cap, pe_ratio, pb_ratio, ev_ebitda
+    ev_ebitda = EXCLUDED.ev_ebitda,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING id, ipo_id, issue_price, market_cap, pe_ratio, pb_ratio, ev_ebitda, updated_at
 `
 
 type CreateOrUpdateValuationParams struct {
@@ -57,12 +58,13 @@ func (q *Queries) CreateOrUpdateValuation(ctx context.Context, arg CreateOrUpdat
 		&i.PeRatio,
 		&i.PbRatio,
 		&i.EvEbitda,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getValuationByIPO = `-- name: GetValuationByIPO :one
-SELECT id, ipo_id, issue_price, market_cap, pe_ratio, pb_ratio, ev_ebitda FROM valuation
+SELECT id, ipo_id, issue_price, market_cap, pe_ratio, pb_ratio, ev_ebitda, updated_at FROM valuation
 WHERE ipo_id = $1 LIMIT 1
 `
 
@@ -77,6 +79,7 @@ func (q *Queries) GetValuationByIPO(ctx context.Context, ipoID int64) (Valuation
 		&i.PeRatio,
 		&i.PbRatio,
 		&i.EvEbitda,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

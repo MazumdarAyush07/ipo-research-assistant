@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -106,17 +107,41 @@ func ScoreIPO(ctx context.Context, queries *models.Queries, peerService *service
 		result.IndustryScore + result.RiskScore + result.SubscriptionScore + result.GmpScore
 
 	maxPossible := 100
+	if result.FinancialsReason == "Insufficient financial history available for scoring." {
+		maxPossible -= 40
+	}
+	if result.ValuationReason == "No valuation data available." {
+		maxPossible -= 20
+	}
 	if result.SubscriptionReason == "No subscription data available yet." {
 		maxPossible -= 5
 	}
 	if result.GmpReason == "No GMP data available." {
 		maxPossible -= 5
 	}
+	if strings.Contains(result.FinancialsReason, "PAT data not available") {
+		maxPossible -= 25 // 15 for PAT growth + 10 for margin
+	}
+	if result.PromoterReason == "No AI analysis available." {
+		maxPossible -= 10
+	}
+	if result.IndustryReason == "No AI analysis available." {
+		maxPossible -= 10
+	}
+	if result.RiskReason == "No AI analysis available." {
+		maxPossible -= 10
+	}
 
-	if maxPossible < 100 && maxPossible > 0 {
+	if maxPossible > 0 && maxPossible < 100 {
 		result.TotalScore = int((float64(rawTotal) / float64(maxPossible)) * 100)
+	} else if maxPossible <= 0 {
+		result.TotalScore = 0
 	} else {
 		result.TotalScore = rawTotal
+	}
+	// Cap at 100
+	if result.TotalScore > 100 {
+		result.TotalScore = 100
 	}
 
 	if result.TotalScore >= 75 {
@@ -164,11 +189,11 @@ func scoreFinancials(financials []models.Financial) (int, string) {
 	}
 
 	// Sort by year ascending
+	sort.Slice(financials, func(i, j int) bool {
+		return financials[i].Year < financials[j].Year
+	})
 	latest := financials[len(financials)-1]
 	previous := financials[len(financials)-2]
-	if latest.Year < previous.Year {
-		latest, previous = previous, latest // basic swap if unsorted for 2 items
-	}
 
 	parseMoney := func(s sql.NullString) float64 {
 		if !s.Valid {
@@ -182,6 +207,9 @@ func scoreFinancials(financials []models.Financial) (int, string) {
 	prevRev := parseMoney(previous.Revenue)
 	latestPat := parseMoney(latest.Pat)
 	prevPat := parseMoney(previous.Pat)
+
+	// Check if PAT data is actually available vs just zero
+	patAvailable := latest.Pat.Valid || previous.Pat.Valid
 
 	score := 0
 	var reasons []string
@@ -207,7 +235,9 @@ func scoreFinancials(financials []models.Financial) (int, string) {
 	}
 
 	// PAT Growth (up to 15 points)
-	if prevPat > 0 {
+	if !patAvailable {
+		reasons = append(reasons, "PAT data not available.")
+	} else if prevPat > 0 {
 		patGrowth := (latestPat - prevPat) / prevPat * 100
 		if patGrowth > 20 {
 			score += 15
@@ -229,7 +259,9 @@ func scoreFinancials(financials []models.Financial) (int, string) {
 	}
 
 	// Profit Margin (up to 10 points)
-	if latestRev > 0 {
+	if !patAvailable {
+		// Skip margin calculation if PAT is unavailable
+	} else if latestRev > 0 {
 		margin := (latestPat / latestRev) * 100
 		if margin > 15 {
 			score += 10

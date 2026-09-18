@@ -8,6 +8,7 @@ export interface IPO {
   open_date: string;
   close_date: string;
   listing_date: string;
+  final_score?: number | null;
 }
 
 export interface Score {
@@ -127,7 +128,8 @@ export async function fetchIPOs(): Promise<IPO[]> {
       issue_size: raw.issue_size || 0,
       open_date: getString(raw.open_date) || (raw.OpenDate?.Valid ? raw.OpenDate.Time : ""),
       close_date: getString(raw.close_date) || (raw.CloseDate?.Valid ? raw.CloseDate.Time : ""),
-      listing_date: getString(raw.listing_date) || (raw.ListingDate?.Valid ? raw.ListingDate.Time : "")
+      listing_date: getString(raw.listing_date) || (raw.ListingDate?.Valid ? raw.ListingDate.Time : ""),
+      final_score: raw.final_score ? parseFloat(getString(raw.final_score) || (raw.FinalScore?.Valid ? raw.FinalScore.String : "0")) : (raw.FinalScore?.Valid ? parseFloat(raw.FinalScore.String) : null)
     };
   });
 }

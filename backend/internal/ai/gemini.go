@@ -27,7 +27,8 @@ type AIAnalysisResult struct {
 }
 
 type GeminiClient struct {
-	client *genai.Client
+	client    *genai.Client
+	modelName string
 }
 
 func NewGeminiClient(ctx context.Context) (*GeminiClient, error) {
@@ -41,7 +42,12 @@ func NewGeminiClient(ctx context.Context) (*GeminiClient, error) {
 		return nil, fmt.Errorf("failed to create gemini client: %w", err)
 	}
 
-	return &GeminiClient{client: client}, nil
+	modelName := os.Getenv("GEMINI_MODEL")
+	if modelName == "" {
+		modelName = "gemini-3.1-flash-lite"
+	}
+
+	return &GeminiClient{client: client, modelName: modelName}, nil
 }
 
 func (c *GeminiClient) Close() {
@@ -50,7 +56,7 @@ func (c *GeminiClient) Close() {
 
 // AnalyzeChunk sends a single chunk of text to Gemini using the analyst prompt.
 func (c *GeminiClient) AnalyzeChunk(ctx context.Context, text string, prompt string) (*AIAnalysisResult, error) {
-	model := c.client.GenerativeModel("gemini-3.5-flash-lite") // Map to the appropriate model based on limits
+	model := c.client.GenerativeModel(c.modelName)
 	
 	// Enforce JSON response type
 	model.ResponseMIMEType = "application/json"
@@ -90,7 +96,7 @@ func (c *GeminiClient) AnalyzeChunk(ctx context.Context, text string, prompt str
 
 // MergeAnalyses takes multiple partial JSON analyses and merges them using Gemini.
 func (c *GeminiClient) MergeAnalyses(ctx context.Context, partials []AIAnalysisResult, mergePrompt string) (*AIAnalysisResult, error) {
-	model := c.client.GenerativeModel("gemini-3.5-flash-lite")
+	model := c.client.GenerativeModel(c.modelName)
 	model.ResponseMIMEType = "application/json"
 
 	partialsJSON, _ := json.MarshalIndent(partials, "", "  ")
@@ -139,7 +145,7 @@ type AIModuleScores struct {
 }
 
 func (c *GeminiClient) ScoreModules(ctx context.Context, aiAnalysisJSON string, prompt string) (*AIModuleScores, error) {
-	model := c.client.GenerativeModel("gemini-3.5-flash-lite")
+	model := c.client.GenerativeModel(c.modelName)
 	model.ResponseMIMEType = "application/json"
 
 	fullPrompt := fmt.Sprintf("%s\n\nAI Analysis JSON:\n%s", prompt, aiAnalysisJSON)
@@ -180,7 +186,7 @@ type SectorInferenceResult struct {
 
 // InferSector uses Gemini to classify the company description into one of the allowed sectors.
 func (c *GeminiClient) InferSector(ctx context.Context, companyDescription string, allowedSectors []string) (string, error) {
-	model := c.client.GenerativeModel("gemini-3.5-flash-lite")
+	model := c.client.GenerativeModel(c.modelName)
 	model.ResponseMIMEType = "application/json"
 
 	prompt := fmt.Sprintf(`Given the following company description, classify the company into EXACTLY ONE of the following sectors:

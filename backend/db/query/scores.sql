@@ -39,3 +39,17 @@ WHERE ipo_id = $1 LIMIT 1;
 -- name: CountIPOsWithScores :one
 SELECT COUNT(DISTINCT ipo_id) FROM scores;
 
+-- name: ListFailedScoringIPOs :many
+SELECT 
+    i.id,
+    i.name,
+    s.financials_reason,
+    s.promoter_reason,
+    s.industry_reason,
+    s.risk_reason
+FROM ipos i
+JOIN scores s ON i.id = s.ipo_id
+WHERE 
+    s.promoter_reason LIKE '%failed%' OR 
+    s.industry_reason LIKE '%failed%' OR 
+    s.risk_reason LIKE '%failed%';

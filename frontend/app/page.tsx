@@ -28,7 +28,7 @@ function IPOCard({ ipo, status }: { ipo: any, status: any }) {
         
         <div className="p-6 flex-1 flex flex-col relative z-10">
           <div className="mb-4 flex items-start justify-between">
-            <div>
+            <div className="flex-1 pr-4">
               <div className="flex items-center gap-2 mb-2">
                 <span className="rounded-md bg-white/5 px-2 py-1 text-[10px] font-semibold text-gray-300 uppercase tracking-wider border border-white/10 shadow-sm">
                   {ipo.exchange_type || "IPO"}
@@ -45,6 +45,16 @@ function IPOCard({ ipo, status }: { ipo: any, status: any }) {
                 <span className="truncate">{ipo.sector || "Unknown Sector"}</span>
               </div>
             </div>
+            
+            {ipo.final_score !== null && ipo.final_score !== undefined && (
+              <div className={`shrink-0 flex items-center justify-center w-14 h-14 rounded-full border-[3px] bg-black/40 backdrop-blur-sm shadow-xl ${
+                ipo.final_score > 70 ? 'border-emerald-500/60 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]' :
+                ipo.final_score > 40 ? 'border-amber-500/60 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]' :
+                'border-rose-500/60 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.2)]'
+              }`}>
+                <span className="text-xl font-black">{ipo.final_score}</span>
+              </div>
+            )}
           </div>
 
           <div className="mt-auto pt-5 grid grid-cols-2 gap-4">

@@ -24,6 +24,15 @@ SELECT * FROM ipos
 ORDER BY open_date DESC
 LIMIT $1 OFFSET $2;
 
+-- name: ListIPOsWithScores :many
+SELECT 
+    i.id, i.name, i.exchange_type, i.sector, i.price_band_low, i.price_band_high, i.open_date, i.close_date, i.listing_date, i.status, i.source_url,
+    s.final_score
+FROM ipos i
+LEFT JOIN scores s ON i.id = s.ipo_id
+ORDER BY i.open_date DESC
+LIMIT $1 OFFSET $2;
+
 -- name: GetIPO :one
 SELECT * FROM ipos
 WHERE id = $1 LIMIT 1;

@@ -144,3 +144,58 @@ func (q *Queries) GetScoreByIPO(ctx context.Context, ipoID int64) (Score, error)
 	)
 	return i, err
 }
+
+const listFailedScoringIPOs = `-- name: ListFailedScoringIPOs :many
+SELECT 
+    i.id,
+    i.name,
+    s.financials_reason,
+    s.promoter_reason,
+    s.industry_reason,
+    s.risk_reason
+FROM ipos i
+JOIN scores s ON i.id = s.ipo_id
+WHERE 
+    s.promoter_reason LIKE '%failed%' OR 
+    s.industry_reason LIKE '%failed%' OR 
+    s.risk_reason LIKE '%failed%'
+`
+
+type ListFailedScoringIPOsRow struct {
+	ID               int64
+	Name             string
+	FinancialsReason sql.NullString
+	PromoterReason   sql.NullString
+	IndustryReason   sql.NullString
+	RiskReason       sql.NullString
+}
+
+func (q *Queries) ListFailedScoringIPOs(ctx context.Context) ([]ListFailedScoringIPOsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFailedScoringIPOs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFailedScoringIPOsRow
+	for rows.Next() {
+		var i ListFailedScoringIPOsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.FinancialsReason,
+			&i.PromoterReason,
+			&i.IndustryReason,
+			&i.RiskReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

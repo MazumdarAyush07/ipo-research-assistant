@@ -699,22 +699,85 @@ export default function AdminDashboard() {
                 </div>
               </h2>
               {scoringAudit ? (
-                <div className="space-y-4 text-sm">
-                  <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                    <span className="text-gray-400">Total IPOs Tracked</span>
-                    <span className="text-white font-medium">{scoringAudit.total_ipos}</span>
+                <>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                      <span className="text-gray-400">Total IPOs Tracked</span>
+                      <span className="text-white font-medium">{scoringAudit.total_ipos}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                      <span className="text-gray-400">Scores Generated</span>
+                      <span className="text-emerald-400 font-medium">{scoringAudit.completed}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                      <span className="text-gray-400">Missing Scores</span>
+                      <span className={scoringAudit.missing > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>
+                        {scoringAudit.missing}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">AI Scoring Failed</span>
+                      <span className={scoringAudit.failed > 0 ? "text-amber-400 font-medium" : "text-emerald-400"}>
+                        {scoringAudit.failed || 0}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                    <span className="text-gray-400">Scores Generated</span>
-                    <span className="text-emerald-400 font-medium">{scoringAudit.completed}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">Missing Scores</span>
-                    <span className={scoringAudit.missing > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>
-                      {scoringAudit.missing}
-                    </span>
-                  </div>
-                </div>
+                  {scoringAudit.failed_ipos && scoringAudit.failed_ipos.length > 0 && (
+                    <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <div className="text-xs text-amber-300 font-medium mb-2 flex items-center justify-between">
+                        <span>Failed IPOs</span>
+                        <button 
+                          onClick={async () => {
+                            addLog("Starting batch retry for failed scorings...");
+                            for (const failedIpo of scoringAudit.failed_ipos) {
+                              addLog(`Retrying score for ${failedIpo.name} (ID: ${failedIpo.id})...`);
+                              try {
+                                const scoreRes = await fetch(`${API_BASE_URL}/ipos/${failedIpo.id}/score/trigger?force=true`, { method: "POST" });
+                                if (scoreRes.ok) {
+                                  addLog(`Score recalculated for ${failedIpo.name}. Triggering report generation...`);
+                                  await fetch(`${API_BASE_URL}/ipos/${failedIpo.id}/report/generate?force=true`, { method: "POST" });
+                                  addLog(`Report generation triggered for ${failedIpo.name}.`);
+                                } else {
+                                  addLog(`Failed to retry score for ${failedIpo.name}`);
+                                }
+                              } catch (e) { addLog(`Error retrying ${failedIpo.name}: ${e}`); }
+                            }
+                            runScoringAudit();
+                          }}
+                          className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/40 rounded text-amber-200 transition-colors"
+                        >
+                          Retry All & Gen Reports
+                        </button>
+                      </div>
+                      <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {scoringAudit.failed_ipos.map((f: any) => (
+                          <div key={f.id} className="text-xs flex items-center justify-between p-2 bg-black/20 rounded">
+                            <span className="text-gray-300 truncate pr-2">{f.name}</span>
+                            <button
+                              onClick={async () => {
+                                addLog(`Retrying score for ${f.name} (ID: ${f.id})...`);
+                                try {
+                                  const scoreRes = await fetch(`${API_BASE_URL}/ipos/${f.id}/score/trigger?force=true`, { method: "POST" });
+                                  if (scoreRes.ok) {
+                                    addLog(`Score recalculated for ${f.name}. Triggering report generation...`);
+                                    await fetch(`${API_BASE_URL}/ipos/${f.id}/report/generate?force=true`, { method: "POST" });
+                                    addLog(`Report generation triggered for ${f.name}.`);
+                                  } else {
+                                    addLog(`Failed to retry score for ${f.name}`);
+                                  }
+                                  runScoringAudit();
+                                } catch (e) { addLog(`Error retrying ${f.name}: ${e}`); }
+                              }}
+                              className="text-indigo-400 hover:text-indigo-300 px-2 py-0.5 bg-indigo-500/10 hover:bg-indigo-500/20 rounded transition-colors whitespace-nowrap"
+                            >
+                              Retry & Report
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-gray-500 text-sm text-center py-4">Data not loaded.</div>
               )}

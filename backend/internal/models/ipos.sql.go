@@ -217,6 +217,72 @@ func (q *Queries) ListIPOs(ctx context.Context, arg ListIPOsParams) ([]Ipo, erro
 	return items, nil
 }
 
+const listIPOsWithScores = `-- name: ListIPOsWithScores :many
+SELECT 
+    i.id, i.name, i.exchange_type, i.sector, i.price_band_low, i.price_band_high, i.open_date, i.close_date, i.listing_date, i.status, i.source_url,
+    s.final_score
+FROM ipos i
+LEFT JOIN scores s ON i.id = s.ipo_id
+ORDER BY i.open_date DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListIPOsWithScoresParams struct {
+	Limit  int32
+	Offset int32
+}
+
+type ListIPOsWithScoresRow struct {
+	ID            int64
+	Name          string
+	ExchangeType  sql.NullString
+	Sector        sql.NullString
+	PriceBandLow  sql.NullString
+	PriceBandHigh sql.NullString
+	OpenDate      sql.NullTime
+	CloseDate     sql.NullTime
+	ListingDate   sql.NullTime
+	Status        sql.NullString
+	SourceUrl     sql.NullString
+	FinalScore    sql.NullString
+}
+
+func (q *Queries) ListIPOsWithScores(ctx context.Context, arg ListIPOsWithScoresParams) ([]ListIPOsWithScoresRow, error) {
+	rows, err := q.db.QueryContext(ctx, listIPOsWithScores, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIPOsWithScoresRow
+	for rows.Next() {
+		var i ListIPOsWithScoresRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ExchangeType,
+			&i.Sector,
+			&i.PriceBandLow,
+			&i.PriceBandHigh,
+			&i.OpenDate,
+			&i.CloseDate,
+			&i.ListingDate,
+			&i.Status,
+			&i.SourceUrl,
+			&i.FinalScore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateIPO = `-- name: UpdateIPO :one
 UPDATE ipos
 SET 

@@ -34,7 +34,7 @@ func (h *IPOHandler) ListIPOs(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "success", "data": []string{}})
 	}
 
-	ipos, err := h.Queries.ListIPOs(c.Context(), models.ListIPOsParams{
+	ipos, err := h.Queries.ListIPOsWithScores(c.Context(), models.ListIPOsWithScoresParams{
 		Limit:  1000,
 		Offset: 0,
 	})
@@ -256,7 +256,7 @@ func (h *IPOHandler) TriggerScore(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "IPO not found"})
 	}
-	if ipo.Status.String != "ACTIVE" && ipo.Status.String != "UPCOMING" {
+	if ipo.Status.String != "ACTIVE" && ipo.Status.String != "UPCOMING" && c.Query("force") != "true" {
 		return c.JSON(fiber.Map{
 			"status":  "skipped",
 			"message": "IPO is not active or upcoming",
@@ -286,7 +286,7 @@ func (h *IPOHandler) TriggerReportGeneration(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "IPO not found"})
 	}
-	if ipo.Status.String != "ACTIVE" && ipo.Status.String != "UPCOMING" {
+	if ipo.Status.String != "ACTIVE" && ipo.Status.String != "UPCOMING" && c.Query("force") != "true" {
 		return c.JSON(fiber.Map{
 			"status":  "skipped",
 			"message": "IPO is not active or upcoming",
@@ -487,10 +487,25 @@ func (h *IPOHandler) GetScoringAudit(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to count scores"})
 	}
 
+	failedIPOs, err := h.Queries.ListFailedScoringIPOs(ctx)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to list failed scorings"})
+	}
+
+	var failedList []fiber.Map
+	for _, f := range failedIPOs {
+		failedList = append(failedList, fiber.Map{
+			"id":   f.ID,
+			"name": f.Name,
+		})
+	}
+
 	return c.JSON(fiber.Map{
 		"total_ipos": totalIPOs,
 		"completed":  scoringCount,
 		"missing":    totalIPOs - scoringCount,
+		"failed":     len(failedIPOs),
+		"failed_ipos": failedList,
 	})
 }
 

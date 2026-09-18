@@ -607,14 +607,14 @@ All API endpoints are consumed. A full IPO's data is visible end-to-end in the b
 **Goal:** Build a secure frontend UI to trigger and monitor the tasks defined in `execution_pipeline.md` without needing terminal access.
 
 ## Tasks
-- [ ] Add `/admin` route in Next.js (bypass auth for local dev per user request).
-- [ ] Build UI controls to trigger:
+- [x] Add `/admin` route in Next.js (bypass auth for local dev per user request).
+- [x] Build UI controls to trigger:
   - Automated Ingestion (`batch_trigger.py`)
   - Morning Audit (`audit_downloads.py`)
   - AI Extraction (`batch_parse.py`)
   - Scoring Engine (`trigger_score.py`)
   - Trackers Sync (`POST /api/trackers/sync`)
-- [ ] Add visual indicators for task success/failure and live logs.
+- [x] Add visual indicators for task success/failure and live logs.
 
 ## Done when
 All pipeline scripts can be triggered via the UI and logs/status can be viewed without the terminal.
@@ -711,7 +711,7 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] AI Document Analyzer — Gemini returns red flags, not just summaries
 - [x] Explainable Scoring Engine — every score has a reason string
 - [x] HTML Report Generator — report auto-produced with AI findings
-- [ ] Admin Panel — pipeline execution UI built
+- [x] Admin Panel — pipeline execution UI built
 - [ ] Hosting & Deployment — full stack deployed to cloud
 - [ ] Backtesting Engine — scoring model validated against 50+ IPOs
 - [ ] Complete API Layer — all endpoints documented and tested

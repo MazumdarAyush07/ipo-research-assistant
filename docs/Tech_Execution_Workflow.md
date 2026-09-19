@@ -626,12 +626,12 @@ All pipeline scripts can be triggered via the UI and logs/status can be viewed w
 **Goal:** Deploy the Next.js frontend, Go backend, Python sidecar, and persistent storage to a production environment.
 
 ## Tasks
-- [ ] Setup Oracle Cloud Always Free instance (ARM VM) for backend, Redis, and Python sidecar.
-- [ ] Finalize `docker-compose.prod.yml`.
-- [ ] Setup volume mounts for persistent DRHP storage on the VPS.
-- [ ] Deploy Next.js frontend to Vercel (Free Tier).
-- [ ] Maintain Neon DB (Free Tier) or migrate PostgreSQL to the VPS.
-- [ ] Setup CI/CD pipelines (e.g., GitHub Actions) for seamless deployments.
+- [x] Setup Oracle Cloud Always Free instance (ARM VM) for backend, Redis, and Python sidecar.
+- [x] Finalize `docker-compose.prod.yml`.
+- [x] Setup volume mounts for persistent DRHP storage on the VPS.
+- [x] Deploy Next.js frontend to Vercel (Free Tier).
+- [x] Maintain Neon DB (Free Tier) or migrate PostgreSQL to the VPS.
+- [x] Setup CI/CD pipelines (e.g., GitHub Actions) for seamless deployments.
 
 ## Done when
 The entire stack is live on the internet, and the admin panel can successfully process an IPO from start to finish on the production server.
@@ -712,7 +712,7 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] Explainable Scoring Engine — every score has a reason string
 - [x] HTML Report Generator — report auto-produced with AI findings
 - [x] Admin Panel — pipeline execution UI built
-- [ ] Hosting & Deployment — full stack deployed to cloud
+- [x] Hosting & Deployment — full stack deployed to cloud
 - [ ] Backtesting Engine — scoring model validated against 50+ IPOs
 - [ ] Complete API Layer — all endpoints documented and tested
 

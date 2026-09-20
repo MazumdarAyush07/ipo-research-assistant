@@ -23,8 +23,8 @@ pdf-parser/venv/
 .DS_Store
 
 # Data
-storage/
-reports/
+/storage/
+/reports/
 
 # Cache
 .cache/

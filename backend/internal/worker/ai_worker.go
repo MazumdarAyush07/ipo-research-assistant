@@ -21,8 +21,8 @@ import (
 const TaskAnalyzeDocument = "task:analyze_document"
 
 type AnalyzeDocumentPayload struct {
-	IPOID    int64  `json:"ipo_id"`
-	FilePath string `json:"file_path"`
+	IPOID int64  `json:"ipo_id"`
+	S3Key string `json:"s3_key"`
 }
 
 func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task *asynq.Task) error {
@@ -34,7 +34,7 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 	log.Printf("Starting AI analysis for IPO ID: %d", payload.IPOID)
 
 	// 1. Ask Python sidecar to extract full text
-	text, err := extractTextFromPDF(payload.FilePath)
+	text, err := extractTextFromPDF(payload.S3Key)
 	if err != nil {
 		return fmt.Errorf("failed to extract text from PDF: %w", err)
 	}
@@ -159,14 +159,14 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 	return nil
 }
 
-func extractTextFromPDF(filePath string) (string, error) {
+func extractTextFromPDF(s3Key string) (string, error) {
 	url := os.Getenv("PDF_PARSER_URL")
 	if url == "" {
 		url = "http://localhost:8000"
 	}
 	url = url + "/extract-text"
 
-	reqBody := fmt.Sprintf(`{"file_path": "%s"}`, filePath)
+	reqBody := fmt.Sprintf(`{"s3_key": "%s"}`, s3Key)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer([]byte(reqBody)))
 	if err != nil {
 		return "", err

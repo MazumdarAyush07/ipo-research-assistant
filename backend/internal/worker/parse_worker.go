@@ -19,8 +19,8 @@ import (
 const TaskParseDocument = "document:parse"
 
 type ParseDocumentPayload struct {
-	IPOID    int64  `json:"ipo_id"`
-	FilePath string `json:"file_path"`
+	IPOID int64  `json:"ipo_id"`
+	S3Key string `json:"s3_key"`
 }
 
 func (p *Processor) ProcessTaskParseDocument(ctx context.Context, task *asynq.Task) error {
@@ -30,7 +30,7 @@ func (p *Processor) ProcessTaskParseDocument(ctx context.Context, task *asynq.Ta
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	log.Printf("Starting parsing for IPO ID: %d from file: %s", payload.IPOID, payload.FilePath)
+	log.Printf("Starting parsing for IPO ID: %d from file: %s", payload.IPOID, payload.S3Key)
 
 	parserURL := os.Getenv("PDF_PARSER_URL")
 	if parserURL == "" {
@@ -38,9 +38,9 @@ func (p *Processor) ProcessTaskParseDocument(ctx context.Context, task *asynq.Ta
 	}
 
 	reqBody, _ := json.Marshal(map[string]interface{}{
-		"file_path": payload.FilePath,
-		"ipo_id":    payload.IPOID,
-		"doc_type":  "DRHP",
+		"s3_key":   payload.S3Key,
+		"ipo_id":   payload.IPOID,
+		"doc_type": "DRHP",
 	})
 
 	client := &http.Client{

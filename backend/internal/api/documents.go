@@ -2,8 +2,9 @@ package api
 
 import (
 	"encoding/json"
-	"os"
 	"strconv"
+
+	"github.com/MazumdarAyush07/ipo-research/internal/storage"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/utils"
 	"github.com/MazumdarAyush07/ipo-research/internal/worker"
@@ -30,12 +31,19 @@ func (h *IPOHandler) TriggerDocumentDownload(c *fiber.Ctx) error {
 	}
 
 	slug := utils.GenerateSlug(ipo.Name)
-	path := "../storage/" + slug + "/drhp.pdf"
+	s3Key := "drhps/" + slug + ".pdf"
+	
+	r2Client, err := storage.NewR2Client(c.Context())
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
+	}
+
 	// Check if already downloaded
-	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+	exists, err := r2Client.ObjectExists(c.Context(), s3Key)
+	if err == nil && exists {
 		return c.JSON(fiber.Map{
 			"status":  "skipped",
-			"message": "DRHP already downloaded",
+			"message": "DRHP already downloaded in R2",
 		})
 	}
 
@@ -89,13 +97,11 @@ func (h *IPOHandler) TriggerDocumentParse(c *fiber.Ctx) error {
 	// Reconstruct the file path (same logic as document worker)
 	// Alternatively, if the file doesn't exist, we can error early
 	slug := utils.GenerateSlug(ipo.Name)
-	// The path from the worker's perspective is relative to /app (which is ../storage)
-	// So we pass "../storage/<slug>/drhp.pdf" to the worker.
-	filePath := "../storage/" + slug + "/drhp.pdf"
+	s3Key := "drhps/" + slug + ".pdf"
 
 	payload, _ := json.Marshal(worker.ParseDocumentPayload{
-		IPOID:    ipoID,
-		FilePath: filePath,
+		IPOID: ipoID,
+		S3Key: s3Key,
 	})
 	task := asynq.NewTask(worker.TaskParseDocument, payload, asynq.MaxRetry(3), asynq.Retention(24*time.Hour))
 

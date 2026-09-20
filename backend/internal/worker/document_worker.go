@@ -17,6 +17,7 @@ import (
 
 	"github.com/MazumdarAyush07/ipo-research/internal/downloader"
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
+	"github.com/MazumdarAyush07/ipo-research/internal/storage"
 	"github.com/MazumdarAyush07/ipo-research/internal/utils"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/hibiken/asynq"
@@ -49,10 +50,12 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 	// Create a safe slug for the folder name
 	slug := utils.GenerateSlug(ipo.Name)
 
-	// ALWAYS create the directory immediately so the audit script knows the IPO exists
-	// even if the download ultimately fails.
-	storageDir := filepath.Join("../storage", slug)
-	os.MkdirAll(storageDir, os.ModePerm)
+	// Create a temporary directory for this download
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("ipo_%d", ipo.ID))
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir) // Ensure cleanup at the end
 
 	log.Printf("Scraping detail page for %s: %s", ipo.Name, ipo.SourceUrl.String)
 	drhpUrl, err := findDRHPLink(ipo.SourceUrl.String)
@@ -61,15 +64,7 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 		return nil // Return nil so Asynq does not retry this job
 	}
 
-	destPath := filepath.Join(storageDir, "drhp.pdf")
-	
-	// PRE-CLEANUP: If a corrupted file exists, delete it so we force a fresh download
-	if info, err := os.Stat(destPath); err == nil && info.Size() > 0 {
-		if !isValidPDF(destPath) && !isZipFile(destPath) {
-			log.Printf("Existing file %s is corrupted (neither PDF nor ZIP). Deleting it...", destPath)
-			os.Remove(destPath)
-		}
-	}
+	destPath := filepath.Join(tempDir, "drhp.pdf")
 
 	log.Printf("Downloading DRHP to %s", destPath)
 
@@ -82,7 +77,6 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 
 	// POST-VALIDATION: Check if what we downloaded is actually valid
 	if !isValidPDF(destPath) && !isZipFile(destPath) {
-		os.Remove(destPath)
 		log.Printf("Downloaded file is neither a valid PDF nor a ZIP archive. Aborting job.")
 		return nil
 	}
@@ -90,7 +84,7 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 	// Bulletproof check: Does the file start with ZIP magic bytes?
 	if isZipFile(destPath) {
 		log.Printf("File is actually a ZIP archive. Extracting PDF...")
-		tempZipPath := filepath.Join("../storage", slug, "temp_drhp.zip")
+		tempZipPath := filepath.Join(tempDir, "temp_drhp.zip")
 		
 		// Rename the downloaded file to a temp zip
 		if err := os.Rename(destPath, tempZipPath); err != nil {
@@ -108,10 +102,29 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 		os.Remove(tempZipPath)
 	}
 
+	// UPLOAD TO R2
+	r2Client, err := storage.NewR2Client(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize R2 client: %v", err)
+	}
+
+	pdfFile, err := os.Open(destPath)
+	if err != nil {
+		return fmt.Errorf("failed to open downloaded pdf: %v", err)
+	}
+	defer pdfFile.Close()
+
+	s3Key := fmt.Sprintf("drhps/%s.pdf", slug)
+	log.Printf("Uploading %s to R2 at key %s...", destPath, s3Key)
+	
+	if err := r2Client.UploadStream(ctx, s3Key, pdfFile, "application/pdf"); err != nil {
+		return fmt.Errorf("failed to upload to R2: %v", err)
+	}
+
 	// PHASE 6 INTEGRITY CHECK: Call python sidecar /validate to ensure it has >50 pages and no Unexpected EOF
-	if err := validatePDFWithPython(destPath); err != nil {
-		os.Rename(destPath, filepath.Join(storageDir, "bad.pdf")) // save the bad file for inspection
-		log.Printf("PDF integrity validation failed: %v. Saved as bad.pdf. Aborting job.", err)
+	// We pass the R2 key, the Python sidecar will download it and validate it.
+	if err := validatePDFWithPython(s3Key); err != nil {
+		log.Printf("PDF integrity validation failed for %s: %v. Aborting job.", s3Key, err)
 		return nil
 	}
 
@@ -119,14 +132,14 @@ func (p *Processor) HandleDownloadDocumentsTask(ctx context.Context, t *asynq.Ta
 	_, err = p.Queries.CreateDocument(ctx, models.CreateDocumentParams{
 		IpoID:        ipo.ID,
 		Type:         "DRHP",
-		FilePath:     destPath,
+		FilePath:     s3Key,
 		DownloadedAt: sql.NullTime{Time: time.Now(), Valid: true},
 	})
 	if err != nil {
 		log.Printf("Failed to record document in DB for %s: %v", ipo.Name, err)
 	}
 
-	log.Printf("Successfully downloaded DRHP for IPO ID: %d. Standing by for manual parse trigger.", payload.IPOID)
+	log.Printf("Successfully downloaded DRHP to R2 for IPO ID: %d. Standing by for manual parse trigger.", payload.IPOID)
 
 	return nil
 }
@@ -249,21 +262,34 @@ func extractLargestPDFFromZip(zipPath string, destPdfPath string) error {
 	var drhpFile *zip.File
 	
 	var largestFile *zip.File
+	var rhpMaxSize uint64 = 0
+	var drhpMaxSize uint64 = 0
 	var maxSize uint64 = 0
 
 	for _, f := range r.File {
 		if strings.HasSuffix(strings.ToLower(f.Name), ".pdf") {
-			lowerName := strings.ToLower(f.Name)
-			if strings.Contains(lowerName, "gid") || strings.Contains(lowerName, "form") || 
-			   strings.Contains(lowerName, "checklist") || strings.Contains(lowerName, "certificate") || 
-			   strings.Contains(lowerName, "notice") {
+			baseName := strings.ToLower(filepath.Base(f.Name))
+			
+			if strings.Contains(baseName, "form") || 
+			   strings.Contains(baseName, "checklist") || strings.Contains(baseName, "certificate") || 
+			   strings.Contains(baseName, "notice") {
 				continue // skip bad files in zip
 			}
+			// Only skip "gid" if it doesn't also contain "rhp" or "drhp"
+			if strings.Contains(baseName, "gid") && !strings.Contains(baseName, "rhp") && !strings.Contains(baseName, "drhp") {
+				continue
+			}
 			
-			if strings.Contains(lowerName, "drhp") {
-				drhpFile = f
-			} else if strings.Contains(lowerName, "rhp") {
-				rhpFile = f
+			if strings.Contains(baseName, "drhp") {
+				if f.UncompressedSize64 > drhpMaxSize {
+					drhpMaxSize = f.UncompressedSize64
+					drhpFile = f
+				}
+			} else if strings.Contains(baseName, "rhp") {
+				if f.UncompressedSize64 > rhpMaxSize {
+					rhpMaxSize = f.UncompressedSize64
+					rhpFile = f
+				}
 			}
 
 			if f.UncompressedSize64 > maxSize {
@@ -335,13 +361,13 @@ type ValidateResponse struct {
 	Error     string `json:"error"`
 }
 
-func validatePDFWithPython(filePath string) error {
+func validatePDFWithPython(s3Key string) error {
 	parserUrl := os.Getenv("PDF_PARSER_URL")
 	if parserUrl == "" {
 		parserUrl = "http://pdf-parser:8000"
 	}
 
-	payload := map[string]string{"file_path": filePath}
+	payload := map[string]string{"s3_key": s3Key}
 	jsonPayload, _ := json.Marshal(payload)
 
 	resp, err := http.Post(parserUrl+"/validate", "application/json", bytes.NewBuffer(jsonPayload))

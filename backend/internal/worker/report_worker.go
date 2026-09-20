@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
+	"github.com/MazumdarAyush07/ipo-research/internal/storage"
 	"github.com/MazumdarAyush07/ipo-research/internal/utils"
 	"github.com/hibiken/asynq"
 )
@@ -168,26 +167,25 @@ func (p *Processor) HandleGenerateReportTask(ctx context.Context, t *asynq.Task)
 		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	// 5. Save HTML file to storage
-	// Convert ipo name to a slug-like string for the directory
+	// 5. Save HTML file to R2
 	slug := utils.GenerateSlug(ipo.Name)
+	s3Key := fmt.Sprintf("reports/%s.html", slug)
 	
-	dirPath := filepath.Join("../storage", slug)
-	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", dirPath, err)
+	r2Client, err := storage.NewR2Client(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to init R2 client: %v", err)
+	}
+
+	if err := r2Client.UploadStream(ctx, s3Key, &buf, "text/html"); err != nil {
+		return fmt.Errorf("failed to upload report to R2: %w", err)
 	}
 	
-	filePath := filepath.Join(dirPath, "report.html")
-	if err := os.WriteFile(filePath, buf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("failed to write report file %s: %w", filePath, err)
-	}
-	
-	log.Printf("Successfully generated report at %s", filePath)
+	log.Printf("Successfully generated report at R2 key: %s", s3Key)
 
 	// 6. Update Database
 	_, err = p.Queries.CreateOrUpdateReport(ctx, models.CreateOrUpdateReportParams{
 		IpoID:    ipoID,
-		FilePath: filePath,
+		FilePath: s3Key,
 		Format:   "HTML",
 	})
 	if err != nil {

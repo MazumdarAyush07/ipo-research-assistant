@@ -5,3 +5,4 @@ pdfplumber==0.10.2
 google-genai>=2.16.0
 opencv-python-headless
 numpy
+boto3

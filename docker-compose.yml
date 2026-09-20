@@ -15,11 +15,14 @@ services:
       - REDIS_URL=redis:6379
       - PDF_PARSER_URL=http://pdf-parser:8000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
     depends_on:
       - redis
     volumes:
       - ./backend:/app
-      - ./storage:/storage
       - ./prompts:/prompts
 
   worker:
@@ -37,13 +40,16 @@ services:
       - REDIS_URL=redis:6379
       - PDF_PARSER_URL=http://pdf-parser:8000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
     depends_on:
       - redis
       - backend
       - pdf-parser
     volumes:
       - ./backend:/app
-      - ./storage:/storage
       - ./prompts:/prompts
 
   pdf-parser:
@@ -54,10 +60,13 @@ services:
       - "8000:8000"
     volumes:
       - ./pdf-parser:/app
-      - ./storage:/storage
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.1-flash-lite}
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
 
   frontend:
     build:
@@ -76,5 +85,3 @@ services:
     ports:
       - "6379:6379"
 
-volumes:
-  storage_data:

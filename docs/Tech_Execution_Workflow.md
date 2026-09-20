@@ -626,19 +626,34 @@ All pipeline scripts can be triggered via the UI and logs/status can be viewed w
 **Goal:** Deploy the Next.js frontend, Go backend, Python sidecar, and persistent storage to a production environment.
 
 ## Tasks
-- [x] Setup Oracle Cloud Always Free instance (ARM VM) for backend, Redis, and Python sidecar.
-- [x] Finalize `docker-compose.prod.yml`.
-- [x] Setup volume mounts for persistent DRHP storage on the VPS.
+- [x] Create `render.yaml` blueprint for automated deployment of the Go backend, Python sidecar, and Redis to Render.
 - [x] Deploy Next.js frontend to Vercel (Free Tier).
-- [x] Maintain Neon DB (Free Tier) or migrate PostgreSQL to the VPS.
-- [x] Setup CI/CD pipelines (e.g., GitHub Actions) for seamless deployments.
+- [x] Maintain Neon DB (Free Tier).
+- [x] Connect GitHub repository to Render for automatic deployments on push (replaces GitHub Actions SSH deployment).
 
 ## Done when
 The entire stack is live on the internet, and the admin panel can successfully process an IPO from start to finish on the production server.
 
 ---
 
-# Phase 16 — Backtesting Engine
+# Phase 16 — Stateless Architecture (Cloudflare R2)
+
+**Goal:** Decouple file storage from the compute layer so the backend and Python sidecar can be hosted anywhere (Render, Railway, etc.) without ephemeral file system constraints.
+
+## Tasks
+- [x] Setup Cloudflare R2 bucket (`ipo-research-storage`) and obtain S3-compatible API keys.
+- [x] Backend: Update `document_worker.go` to stream PDF downloads directly to R2 instead of `os.WriteFile`.
+- [x] Backend: Update `html.go` report generator to upload final HTML reports to R2 (make them public).
+- [x] Python Sidecar: Update `extractor.py` to accept an R2 bucket key, download the PDF into memory (or `/tmp`), parse it, and discard it.
+- [x] Docker: Remove local `storage/` volume mounts from `docker-compose.yml` and `docker-compose.prod.yml`.
+- [x] Ensure the Audit Pipelines (`audit_downloads.py`, `batch_trigger.py`) interact correctly with the new R2 storage paradigm.
+
+## Done when
+A new IPO is triggered, the DRHP is saved to Cloudflare R2, the Python sidecar pulls it from R2 and successfully extracts financials, and the HTML report is accessible via a public R2 URL. The local `/storage` folder is completely empty.
+
+---
+
+# Phase 17 — Backtesting Engine
 
 **Goal:** Validate your scoring model against historical IPOs. Without this, your score is an opinion. With this, it's evidence.
 
@@ -661,7 +676,7 @@ Backtest runs on 50+ historical IPOs and produces a correlation table between ea
 
 ---
 
-# Phase 17 — Complete API Layer
+# Phase 18 — Complete API Layer
 
 **Goal:** Wire everything into a clean, documented REST API before V2 work begins.
 
@@ -713,6 +728,7 @@ All endpoints return correct responses. Integration tests pass. OpenAPI docs acc
 - [x] HTML Report Generator — report auto-produced with AI findings
 - [x] Admin Panel — pipeline execution UI built
 - [x] Hosting & Deployment — full stack deployed to cloud
+- [x] Stateless Architecture — Cloudflare R2 migration complete
 - [ ] Backtesting Engine — scoring model validated against 50+ IPOs
 - [ ] Complete API Layer — all endpoints documented and tested
 

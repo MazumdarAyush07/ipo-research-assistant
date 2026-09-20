@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"log"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/MazumdarAyush07/ipo-research/internal/scoring"
 	"github.com/MazumdarAyush07/ipo-research/internal/services"
+	"github.com/MazumdarAyush07/ipo-research/internal/storage"
 	"github.com/MazumdarAyush07/ipo-research/internal/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/hibiken/asynq"
@@ -145,10 +145,10 @@ func (h *IPOHandler) TriggerAIAnalysis(c *fiber.Ctx) error {
 	}
 
 	slug := utils.GenerateSlug(ipo.Name)
-	filePath := filepath.Join("../storage", slug, "drhp.pdf")
+	s3Key := "drhps/" + slug + ".pdf"
 
 	if h.AsynqClient != nil {
-		payload, _ := json.Marshal(map[string]interface{}{"ipo_id": id, "file_path": filePath})
+		payload, _ := json.Marshal(map[string]interface{}{"ipo_id": id, "s3_key": s3Key})
 		task := asynq.NewTask("task:analyze_document", payload, asynq.Retention(24*time.Hour))
 		if _, err := h.AsynqClient.Enqueue(task); err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "failed to enqueue ai analysis task"})
@@ -342,12 +342,17 @@ func (h *IPOHandler) GetAudit(c *fiber.Ctx) error {
 	downloaded := 0
 	missing := []string{}
 
+	r2Client, err := storage.NewR2Client(c.Context())
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
+	}
+
 	for _, ipo := range ipos {
 		slug := utils.GenerateSlug(ipo.Name)
-		path := filepath.Join("../storage", slug, "drhp.pdf")
+		s3Key := "drhps/" + slug + ".pdf"
 
-		info, err := os.Stat(path)
-		if err == nil && !info.IsDir() {
+		exists, err := r2Client.ObjectExists(c.Context(), s3Key)
+		if err == nil && exists {
 			downloaded++
 		} else {
 			missing = append(missing, ipo.Name)
@@ -528,12 +533,17 @@ func (h *IPOHandler) GetReportAudit(c *fiber.Ctx) error {
 
 	completed := int64(0)
 	missingList := []string{}
+	r2Client, err := storage.NewR2Client(c.Context())
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
+	}
+
 	for _, ipo := range ipos {
 		slug := utils.GenerateSlug(ipo.Name)
-		path := filepath.Join("../storage", slug, "report.html")
+		s3Key := "reports/" + slug + ".html"
 
-		info, err := os.Stat(path)
-		if err == nil && !info.IsDir() {
+		exists, err := r2Client.ObjectExists(c.Context(), s3Key)
+		if err == nil && exists {
 			completed++
 		} else {
 			missingList = append(missingList, ipo.Name)

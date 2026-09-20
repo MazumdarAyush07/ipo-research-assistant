@@ -32,22 +32,7 @@ services:
         value: "http://ipo-pdf-parser:8000"
       - fromGroup: shared-config
 
-  - type: worker
-    name: ipo-worker
-    env: docker
-    dockerContext: backend
-    dockerfilePath: Dockerfile
-    dockerCommand: "/worker"
-    plan: free
-    envVars:
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: ipo-redis
-          property: connectionString
-      - key: PDF_PARSER_URL
-        value: "http://ipo-pdf-parser:8000"
-      - fromGroup: shared-config
+
 
   - type: web
     name: ipo-pdf-parser

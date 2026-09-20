@@ -8,6 +8,7 @@ import (
 	"github.com/MazumdarAyush07/ipo-research/internal/api"
 	"github.com/MazumdarAyush07/ipo-research/internal/models"
 	"github.com/MazumdarAyush07/ipo-research/internal/services"
+	"github.com/MazumdarAyush07/ipo-research/internal/worker"
 	"github.com/redis/go-redis/v9"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -65,7 +66,41 @@ func main() {
 
 	// Setup API handlers
 	ipoHandler := api.NewIPOHandler(queries, asynqClient, asynqInspector, peerService)
-	// Register Routes
+
+	// Setup Asynq Worker Server
+	workerSrv := asynq.NewServer(
+		asynq.RedisClientOpt{Addr: redisAddr},
+		asynq.Config{
+			Concurrency: 1, // Keep concurrency low to avoid overwhelming the python parser (512mb ram limit)
+			Queues: map[string]int{
+				"critical": 6,
+				"default":  3,
+				"low":      1,
+			},
+		},
+	)
+
+	// Register Worker Handlers
+	proc := worker.NewProcessor(queries, asynqClient, peerService)
+	workerMux := asynq.NewServeMux()
+	workerMux.HandleFunc(worker.TaskSyncIPOs, proc.HandleSyncIPOsTask)
+	workerMux.HandleFunc(worker.TaskDownloadDocuments, proc.HandleDownloadDocumentsTask)
+	workerMux.HandleFunc(worker.TaskParseDocument, proc.ProcessTaskParseDocument)
+	workerMux.HandleFunc(worker.TaskSyncGMP, proc.HandleSyncGMPTask)
+	workerMux.HandleFunc(worker.TaskSyncSubscriptions, proc.HandleSyncSubscriptionsTask)
+	workerMux.HandleFunc(worker.TaskSyncValuation, proc.HandleSyncValuationTask)
+	workerMux.HandleFunc(worker.TaskSyncPeers, proc.HandleSyncPeersTask)
+	workerMux.HandleFunc(worker.TaskAnalyzeDocument, proc.ProcessTaskAnalyzeDocument)
+	workerMux.HandleFunc(worker.TaskGenerateReport, proc.HandleGenerateReportTask)
+
+	log.Println("Starting Asynq Worker in background...")
+	go func() {
+		if err := workerSrv.Run(workerMux); err != nil {
+			log.Fatalf("could not start worker server: %v", err)
+		}
+	}()
+
+	// Register API Routes
 	app.Get("/api/ipos", ipoHandler.ListIPOs)
 	app.Post("/api/ipos", ipoHandler.ManualSyncIPOs)
 	

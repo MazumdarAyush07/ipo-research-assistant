@@ -94,3 +94,27 @@ func (r *R2Client) ObjectExists(ctx context.Context, key string) (bool, error) {
 	}
 	return true, nil
 }
+
+// ListObjects fetches all object keys with a given prefix
+func (r *R2Client) ListObjects(ctx context.Context, prefix string) ([]string, error) {
+	var keys []string
+	
+	paginator := s3.NewListObjectsV2Paginator(r.Client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(r.Bucket),
+		Prefix: aws.String(prefix),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list objects: %v", err)
+		}
+		for _, obj := range page.Contents {
+			if obj.Key != nil {
+				keys = append(keys, *obj.Key)
+			}
+		}
+	}
+
+	return keys, nil
+}

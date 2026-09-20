@@ -346,13 +346,23 @@ func (h *IPOHandler) GetAudit(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
 	}
+	
+	// Fetch all DRHP keys once to avoid N+1 API calls causing 502 Bad Gateway timeouts
+	keys, err := r2Client.ListObjects(c.Context(), "drhps/")
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list objects in R2"})
+	}
+	
+	existingKeys := make(map[string]bool)
+	for _, k := range keys {
+		existingKeys[k] = true
+	}
 
 	for _, ipo := range ipos {
 		slug := utils.GenerateSlug(ipo.Name)
 		s3Key := "drhps/" + slug + ".pdf"
 
-		exists, err := r2Client.ObjectExists(c.Context(), s3Key)
-		if err == nil && exists {
+		if existingKeys[s3Key] {
 			downloaded++
 		} else {
 			missing = append(missing, ipo.Name)
@@ -537,13 +547,23 @@ func (h *IPOHandler) GetReportAudit(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
 	}
+	
+	// Fetch all Report keys once to avoid N+1 API calls causing timeouts
+	keys, err := r2Client.ListObjects(c.Context(), "reports/")
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to list objects in R2"})
+	}
+	
+	existingKeys := make(map[string]bool)
+	for _, k := range keys {
+		existingKeys[k] = true
+	}
 
 	for _, ipo := range ipos {
 		slug := utils.GenerateSlug(ipo.Name)
 		s3Key := "reports/" + slug + ".html"
 
-		exists, err := r2Client.ObjectExists(c.Context(), s3Key)
-		if err == nil && exists {
+		if existingKeys[s3Key] {
 			completed++
 		} else {
 			missingList = append(missingList, ipo.Name)

@@ -25,8 +25,8 @@ All automation pipelines and manual overrides are managed through a comprehensiv
 Clone the repository and copy the environment variables template:
 
 ```bash
-git clone https://github.com/MazumdarAyush07/ipo-research.git
-cd ipo-research
+git clone https://github.com/MazumdarAyush07/ipo-research-assistant.git
+cd ipo-research-assistant
 cp .env.example .env
 ```
 

@@ -25,7 +25,7 @@ func main() {
 	// Default CORS allows all origins
 	app.Use(cors.New())
 
-	app.Get("/health", func(c *fiber.Ctx) error {
+	app.Get("/api/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 

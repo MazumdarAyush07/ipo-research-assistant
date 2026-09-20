@@ -30,8 +30,7 @@ services:
           property: connectionString
       - key: PDF_PARSER_URL
         value: "http://ipo-pdf-parser:8000"
-    envVarGroups:
-      - shared-config
+      - fromGroup: shared-config
 
   - type: worker
     name: ipo-worker
@@ -48,8 +47,7 @@ services:
           property: connectionString
       - key: PDF_PARSER_URL
         value: "http://ipo-pdf-parser:8000"
-    envVarGroups:
-      - shared-config
+      - fromGroup: shared-config
 
   - type: web
     name: ipo-pdf-parser
@@ -57,8 +55,8 @@ services:
     dockerContext: pdf-parser
     dockerfilePath: Dockerfile
     plan: free
-    envVarGroups:
-      - shared-config
+    envVars:
+      - fromGroup: shared-config
 
   - type: redis
     name: ipo-redis

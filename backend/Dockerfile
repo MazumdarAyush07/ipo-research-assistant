@@ -1,4 +1,4 @@
-FROM golang:alpine
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
@@ -13,5 +13,17 @@ COPY . .
 RUN go mod tidy
 
 RUN go build -o /server ./cmd/server
-EXPOSE 8080
-CMD ["/server"]
+
+# Final minimal stage
+FROM alpine:latest
+
+# Required for making HTTPS requests to Yahoo Finance, AWS, etc.
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# Copy the compiled binary and necessary config files
+COPY --from=builder /server /app/server
+COPY --from=builder /app/config /app/config
+
+CMD ["/app/server"]

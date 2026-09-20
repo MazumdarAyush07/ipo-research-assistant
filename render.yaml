@@ -1,3 +1,19 @@
+envVarGroups:
+  - name: shared-config
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+
 services:
   - type: web
     name: ipo-backend
@@ -14,18 +30,8 @@ services:
           property: connectionString
       - key: PDF_PARSER_URL
         value: "http://ipo-pdf-parser:8000"
-      - key: DATABASE_URL
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: R2_ACCOUNT_ID
-        sync: false
-      - key: R2_ACCESS_KEY_ID
-        sync: false
-      - key: R2_SECRET_ACCESS_KEY
-        sync: false
-      - key: R2_BUCKET_NAME
-        sync: false
+    envVarGroups:
+      - shared-config
 
   - type: worker
     name: ipo-worker
@@ -42,18 +48,8 @@ services:
           property: connectionString
       - key: PDF_PARSER_URL
         value: "http://ipo-pdf-parser:8000"
-      - key: DATABASE_URL
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: R2_ACCOUNT_ID
-        sync: false
-      - key: R2_ACCESS_KEY_ID
-        sync: false
-      - key: R2_SECRET_ACCESS_KEY
-        sync: false
-      - key: R2_BUCKET_NAME
-        sync: false
+    envVarGroups:
+      - shared-config
 
   - type: web
     name: ipo-pdf-parser
@@ -61,17 +57,8 @@ services:
     dockerContext: pdf-parser
     dockerfilePath: Dockerfile
     plan: free
-    envVars:
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: R2_ACCOUNT_ID
-        sync: false
-      - key: R2_ACCESS_KEY_ID
-        sync: false
-      - key: R2_SECRET_ACCESS_KEY
-        sync: false
-      - key: R2_BUCKET_NAME
-        sync: false
+    envVarGroups:
+      - shared-config
 
   - type: redis
     name: ipo-redis

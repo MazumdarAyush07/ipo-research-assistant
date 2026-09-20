@@ -36,10 +36,16 @@ func main() {
 	if redisAddr == "" {
 		redisAddr = "127.0.0.1:6379"
 	}
-	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
+
+	redisConnOpt, err := asynq.ParseRedisURI(redisAddr)
+	if err != nil {
+		redisConnOpt = asynq.RedisClientOpt{Addr: redisAddr}
+	}
+
+	asynqClient := asynq.NewClient(redisConnOpt)
 	defer asynqClient.Close()
 
-	asynqInspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: redisAddr})
+	asynqInspector := asynq.NewInspector(redisConnOpt)
 	defer asynqInspector.Close()
 
 	// DB Connection
@@ -55,9 +61,11 @@ func main() {
 
 	queries := models.New(db)
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: redisAddr,
-	})
+	redisOpt, err := redis.ParseURL(redisAddr)
+	if err != nil {
+		redisOpt = &redis.Options{Addr: redisAddr}
+	}
+	redisClient := redis.NewClient(redisOpt)
 
 	peerService, err := services.NewPeerService(redisClient, "config/peers.json")
 	if err != nil {
@@ -69,7 +77,7 @@ func main() {
 
 	// Setup Asynq Worker Server
 	workerSrv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisAddr},
+		redisConnOpt,
 		asynq.Config{
 			Concurrency: 1, // Keep concurrency low to avoid overwhelming the python parser (512mb ram limit)
 			Queues: map[string]int{

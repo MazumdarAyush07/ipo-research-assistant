@@ -25,5 +25,6 @@ WORKDIR /app
 # Copy the compiled binary and necessary config files
 COPY --from=builder /server /app/server
 COPY --from=builder /app/config /app/config
+COPY --from=builder /app/templates /app/templates
 
 CMD ["/app/server"]

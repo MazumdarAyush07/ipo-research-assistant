@@ -7,6 +7,7 @@ Merge rules:
 - Combine lists of red flags or key risks, removing duplicates.
 - Resolve any conflicting information based on the most reasonable context.
 - Keep the final output concise and analytical.
+- For "sector", it MUST be exactly one of the following strings: "Healthcare", "Automobile & Ancillaries", "IT Services", "FMCG", "Financial Services", "Capital Goods", "Consumer Durables", "Construction & Infrastructure", "Pharmaceuticals", "Metals & Mining", "Chemicals", "Energy & Utilities", "Logistics & Transport", "Retail & E-commerce", "Textiles", "Agrochemicals", "Others". Do not invent a sector.
 
 Return ONLY a valid JSON object. No preamble. No explanation.
 The JSON must have the following keys exactly:

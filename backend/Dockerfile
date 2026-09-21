@@ -12,7 +12,7 @@ RUN go mod tidy || true
 COPY . .
 RUN go mod tidy
 
-RUN go build -o /server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
 
 # Final minimal stage
 FROM alpine:latest

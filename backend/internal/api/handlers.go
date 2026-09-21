@@ -149,7 +149,7 @@ func (h *IPOHandler) TriggerAIAnalysis(c *fiber.Ctx) error {
 
 	if h.AsynqClient != nil {
 		payload, _ := json.Marshal(map[string]interface{}{"ipo_id": id, "s3_key": s3Key})
-		task := asynq.NewTask("task:analyze_document", payload, asynq.Retention(24*time.Hour))
+		task := asynq.NewTask("task:analyze_document", payload, asynq.Retention(24*time.Hour), asynq.Timeout(2*time.Hour))
 		if _, err := h.AsynqClient.Enqueue(task); err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "failed to enqueue ai analysis task"})
 		}
@@ -338,7 +338,10 @@ func (h *IPOHandler) GetAudit(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch IPOs"})
 	}
 
-	totalExpected := len(ipos)
+	totalExpected, err := h.Queries.CountIPOs(c.Context())
+	if err != nil {
+		totalExpected = int64(len(ipos))
+	}
 	downloaded := 0
 	missing := []string{}
 

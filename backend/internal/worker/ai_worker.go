@@ -73,7 +73,9 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 		var err error
 		maxRetries := 3
 		for attempt := 1; attempt <= maxRetries; attempt++ {
-			res, err = geminiClient.AnalyzeChunk(ctx, chunk, string(analystPrompt))
+			reqCtx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+			res, err = geminiClient.AnalyzeChunk(reqCtx, chunk, string(analystPrompt))
+			cancel()
 			if err == nil {
 				break
 			}
@@ -100,7 +102,9 @@ func (processor *Processor) ProcessTaskAnalyzeDocument(ctx context.Context, task
 		log.Printf("Merging %d partial analyses for IPO %d", len(partialResults), payload.IPOID)
 		maxRetriesMerge := 3
 		for attempt := 1; attempt <= maxRetriesMerge; attempt++ {
-			finalAnalysis, err = geminiClient.MergeAnalyses(ctx, partialResults, string(mergePrompt))
+			reqCtx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+			finalAnalysis, err = geminiClient.MergeAnalyses(reqCtx, partialResults, string(mergePrompt))
+			cancel()
 			if err == nil {
 				break
 			}

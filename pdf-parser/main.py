@@ -83,6 +83,17 @@ def parse_pdf(req: ParseRequest):
                 "text_extraction": 0.90
             }
         )
+    except Exception as e:
+        return ParseResponse(
+            status="error",
+            ipo_id=req.ipo_id,
+            financials=[],
+            objects_of_issue="",
+            risk_factors="",
+            promoters="",
+            confidence_scores={},
+            message=str(e)
+        )
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)

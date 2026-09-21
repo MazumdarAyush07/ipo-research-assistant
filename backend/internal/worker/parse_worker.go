@@ -75,11 +75,16 @@ func (p *Processor) ProcessTaskParseDocument(ctx context.Context, task *asynq.Ta
 		RiskFactors    string             `json:"risk_factors"`
 		Promoters      string             `json:"promoters"`
 		Confidence     map[string]float64 `json:"confidence_scores"`
+		Message        string             `json:"message"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&parseResp); err != nil {
 		log.Printf("failed to decode pdf-parser response: %v", err)
 		return fmt.Errorf("failed to decode pdf-parser response: %w", err)
+	}
+	
+	if parseResp.Status == "error" {
+	    return fmt.Errorf("pdf-parser returned error status: %s", parseResp.Message)
 	}
 	
 	log.Printf("Extraction Confidence Scores for IPO %d: %+v", payload.IPOID, parseResp.Confidence)

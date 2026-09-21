@@ -12,7 +12,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_PORT=${DB_PORT}
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=redis:6379
+      - REDIS_URL=redis://redis:6379
       - PDF_PARSER_URL=http://pdf-parser:8000
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
@@ -22,34 +22,6 @@ services:
     depends_on:
       - redis
     volumes:
-      - ./backend:/app
-      - ./prompts:/prompts
-
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    command: ["/worker"]
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_PORT=${DB_PORT}
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=redis:6379
-      - PDF_PARSER_URL=http://pdf-parser:8000
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
-      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
-      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
-      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
-    depends_on:
-      - redis
-      - backend
-      - pdf-parser
-    volumes:
-      - ./backend:/app
       - ./prompts:/prompts
 
   pdf-parser:

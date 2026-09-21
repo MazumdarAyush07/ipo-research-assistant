@@ -44,12 +44,27 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchInitialData();
 
-    fetchQueues();
-    const interval = setInterval(fetchQueues, 30000); // Poll every 30 seconds
+    // Initial fetch of everything
+    fetchAllStats();
+    
+    // Only poll the lightweight queue stats every 30s to prevent burning R2/DB reads
+    const interval = setInterval(fetchQueuesOnly, 30000); 
     return () => clearInterval(interval);
   }, []);
 
-  const fetchQueues = async () => {
+  const fetchQueuesOnly = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/queues`);
+      if (res.ok) {
+        const data = await res.json();
+        setQueues(data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch queue stats", err);
+    }
+  };
+
+  const fetchAllStats = async () => {
     try {
       const [queueRes, parsingAuditRes, analysisAuditRes, trackerAuditRes, scoringAuditRes, reportAuditRes] = await Promise.all([
         fetch(`${API_BASE_URL}/admin/queues`),
@@ -70,7 +85,7 @@ export default function AdminDashboard() {
       if (scoringAuditRes) setScoringAudit(scoringAuditRes.data || scoringAuditRes);
       if (reportAuditRes) setReportAudit(reportAuditRes.data || reportAuditRes);
     } catch (err) {
-      console.error("Failed to fetch queue stats", err);
+      console.error("Failed to fetch all stats", err);
     }
   };
 
@@ -361,7 +376,7 @@ export default function AdminDashboard() {
                     </span>
                   )}
                   <button 
-                    onClick={fetchQueues}
+                    onClick={fetchQueuesOnly}
                     className="p-1.5 bg-white/5 hover:bg-white/10 rounded-md transition-colors text-gray-400 hover:text-white"
                     title="Refresh Queue Stats"
                   >
@@ -468,7 +483,7 @@ export default function AdminDashboard() {
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
                     <span className="text-gray-400">Total IPOs Tracked</span>
-                    <span className="text-white font-medium">{ipos.length}</span>
+                    <span className="text-white font-medium">{audit.total_expected}</span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
                     <span className="text-gray-400">PDFs Downloaded</span>

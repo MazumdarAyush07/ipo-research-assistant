@@ -99,6 +99,21 @@ func (h *IPOHandler) TriggerDocumentParse(c *fiber.Ctx) error {
 	slug := utils.GenerateSlug(ipo.Name)
 	s3Key := "drhps/" + slug + ".pdf"
 
+	// Fallback to check if the file exists at the root or under drhps
+	r2Client, err := storage.NewR2Client(ctx)
+	if err == nil {
+		exists, _ := r2Client.ObjectExists(ctx, s3Key)
+		if !exists {
+			rootKey := slug + ".pdf"
+			rootExists, _ := r2Client.ObjectExists(ctx, rootKey)
+			if rootExists {
+				s3Key = rootKey
+			} else {
+				return c.Status(404).JSON(fiber.Map{"error": "PDF document not found in Cloudflare R2 for this IPO"})
+			}
+		}
+	}
+
 	payload, _ := json.Marshal(worker.ParseDocumentPayload{
 		IPOID: ipoID,
 		S3Key: s3Key,

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -117,4 +118,17 @@ func (r *R2Client) ListObjects(ctx context.Context, prefix string) ([]string, er
 	}
 
 	return keys, nil
+}
+
+// GetPresignedURL generates a temporary URL to securely access an object in R2
+func (r *R2Client) GetPresignedURL(ctx context.Context, key string, expiration time.Duration) (string, error) {
+	presignClient := s3.NewPresignClient(r.Client)
+	req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(r.Bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(expiration))
+	if err != nil {
+		return "", err
+	}
+	return req.URL, nil
 }

@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"log"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -324,8 +323,17 @@ func (h *IPOHandler) GetReport(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "report not found"})
 	}
 
-	// Make the path absolute or relative to the current working directory
-	return c.SendFile(filepath.Clean(filepath.Join("..", report.FilePath)))
+	r2Client, err := storage.NewR2Client(c.Context())
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
+	}
+
+	url, err := r2Client.GetPresignedURL(c.Context(), report.FilePath, 15*time.Minute)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to generate report url"})
+	}
+
+	return c.Redirect(url)
 }
 
 // GetAudit handles GET /api/admin/audit
@@ -349,13 +357,13 @@ func (h *IPOHandler) GetAudit(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
 	}
-	
+
 	// Fetch all DRHP keys once to avoid N+1 API calls causing 502 Bad Gateway timeouts
 	keys, err := r2Client.ListObjects(c.Context(), "drhps/")
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list objects in R2"})
 	}
-	
+
 	existingKeys := make(map[string]bool)
 	for _, k := range keys {
 		existingKeys[k] = true
@@ -519,10 +527,10 @@ func (h *IPOHandler) GetScoringAudit(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"total_ipos": totalIPOs,
-		"completed":  scoringCount,
-		"missing":    totalIPOs - scoringCount,
-		"failed":     len(failedIPOs),
+		"total_ipos":  totalIPOs,
+		"completed":   scoringCount,
+		"missing":     totalIPOs - scoringCount,
+		"failed":      len(failedIPOs),
 		"failed_ipos": failedList,
 	})
 }
@@ -550,13 +558,13 @@ func (h *IPOHandler) GetReportAudit(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to init r2 client"})
 	}
-	
+
 	// Fetch all Report keys once to avoid N+1 API calls causing timeouts
 	keys, err := r2Client.ListObjects(c.Context(), "reports/")
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to list objects in R2"})
 	}
-	
+
 	existingKeys := make(map[string]bool)
 	for _, k := range keys {
 		existingKeys[k] = true

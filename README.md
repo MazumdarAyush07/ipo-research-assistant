@@ -1,8 +1,14 @@
 # IPO Research Assistant
 
-An AI-powered institutional-grade system designed to automate IPO research. The assistant scrapes DRHPs, uses Gemini 3.5 Flash Lite to extract deep financial and risk data, tracks live subscriptions and GMP, benchmarks peers via Yahoo Finance, and evaluates the final thesis through an explainable scoring engine.
+🔗 **Live Demo:** [ipo-research-assistant.vercel.app](https://ipo-research-assistant.vercel.app)
 
-All automation pipelines and manual overrides are managed through a comprehensive Next.js **Admin Dashboard**.
+An AI-powered institutional-grade system designed to automate IPO research. 
+The assistant scrapes DRHPs, uses Gemini Flash to extract deep financial and 
+risk data, tracks live subscriptions and GMP, benchmarks peers via Yahoo 
+Finance, and evaluates the final thesis through an explainable scoring engine.
+
+All automation pipelines and manual overrides are managed through a 
+comprehensive Next.js **Admin Dashboard**.
 
 ## Tech Stack
 
@@ -22,7 +28,6 @@ All automation pipelines and manual overrides are managed through a comprehensiv
 - A [Google Gemini API Key](https://aistudio.google.com/app/apikey)
 
 ### 2. Getting Started
-Clone the repository and copy the environment variables template:
 
 ```bash
 git clone https://github.com/MazumdarAyush07/ipo-research-assistant.git
@@ -32,10 +37,9 @@ cp .env.example .env
 
 Populate the `.env` file with your credentials:
 - `DATABASE_URL` (Your Neon connection string)
-- `GEMINI_API_KEY` (Used for DRHP Financial Extraction and AI Analyst evaluation)
+- `GEMINI_API_KEY` (Used for DRHP extraction and AI scoring)
 
 ### 3. Run the Stack
-Spin up the entire application locally using Docker Compose:
 
 ```bash
 docker-compose up --build
@@ -49,22 +53,47 @@ docker-compose up --build
 
 ## Operating the System (Admin Dashboard)
 
-Instead of running terminal scripts, the entire IPO execution pipeline is managed via the **Admin Dashboard** at `http://localhost:3000/admin`. 
+The entire IPO execution pipeline is managed via the **Admin Dashboard** 
+at `http://localhost:3000/admin`.
 
 From the Admin UI, you can trigger:
 1. **Automated Ingestion:** Scrape new IPO listings.
-2. **Parsing & Analytics Audit:** Trigger background jobs to download DRHPs and extract financial/risk tables using Gemini.
-3. **Trackers & Sync:** Sync live Peer Valuation data (Yahoo Finance), Subscriptions, and Grey Market Premium (GMP).
-4. **Scoring Engine:** Recalculate component scores (Financials, Valuation, Promoters, Industry, Risk) and output a definitive recommendation (Apply, Caution, Avoid).
-5. **Report Generation:** Compile the final data into a shareable HTML report saved in `/storage`.
+2. **Parsing & Analytics Audit:** Trigger background jobs to download DRHPs 
+   and extract financial/risk tables using Gemini.
+3. **Trackers & Sync:** Sync live Peer Valuation data (Yahoo Finance), 
+   Subscriptions, and Grey Market Premium (GMP).
+4. **Scoring Engine:** Recalculate component scores (Financials, Valuation, 
+   Promoters, Industry, Risk) and output a definitive recommendation 
+   (Apply, Caution, Avoid).
+5. **Report Generation:** Compile the final data into a shareable HTML 
+   report saved in `/storage`.
 
 ---
 
-## Production Deployment
+## Production Deployment & Architecture
 
-The project is configured for a robust CI/CD cloud deployment setup:
+### Cost-Aware Infrastructure Design
 
-- **Frontend (Edge):** Deployed on Vercel. Connects to the backend via the `NEXT_PUBLIC_API_URL` environment variable.
-- **Backend (Core):** Deployed on an Oracle Cloud "Always Free" ARM VM (4 OCPUs, 24GB RAM).
-- **Docker Production:** A dedicated `docker/docker-compose.prod.yml` isolates the backend services (Go, Python sidecar, Redis) and provisions persistent volume mounts for the `storage/` directory.
-- **CI/CD:** Pushes to the `main` branch trigger a GitHub Action (`.github/workflows/deploy-backend.yml`) that securely SSHes into the Oracle VM to rebuild and restart the Docker containers automatically.
+PDF processing is intentionally kept off the hosted infrastructure. DRHPs 
+are large (often hundreds of pages), processing is infrequent, and running 
+a memory-intensive Python/pdfplumber sidecar in the cloud 24/7 for a batch 
+job that runs a few times a week is wasteful.
+
+Local processing writing directly to the cloud database is the right 
+tradeoff for this workload. Because the database is Neon (serverless), both 
+the local sidecar and the production backend naturally hit the same data 
+layer with zero synchronization issues.
+
+**What is deployed to production:**
+- Go backend API + Asynq (Task Queue)
+- Next.js Admin Dashboard — deployed on Vercel
+- PostgreSQL (Neon Serverless)
+- Redis
+
+**What runs locally (on demand):**
+- Python PDF Parser sidecar (pdfplumber + Gemini)
+- Connects securely to the exact same production `DATABASE_URL`
+
+### CI/CD
+Pushes to `main` trigger automated pipelines that rebuild and redeploy 
+the Go backend and Redis containers.

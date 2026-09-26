@@ -3,7 +3,9 @@ package scraper
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +48,18 @@ func FetchGMPData(ctx context.Context, ipoName string) (*GMPData, error) {
 		return nil, fmt.Errorf("status code error: %d %s", res.StatusCode, res.Status)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	htmlStr := string(bodyBytes)
+
+	// ipowatch.in often has deeply nested formatting tags (e.g. <mark>, <strong>) that exceed 
+	// the golang.org/x/net/html 512 max depth limit. We strip them out before parsing.
+	reTags := regexp.MustCompile(`(?i)</?(strong|b|span|mark|em|i)[^>]*>`)
+	cleanHTML := reTags.ReplaceAllString(htmlStr, "")
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(cleanHTML))
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +177,16 @@ func fetchIPOWatchListingDate(ctx context.Context, url string) (string, string, 
 		return "", "", fmt.Errorf("status code %d", res.StatusCode)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", "", err
+	}
+	htmlStr := string(bodyBytes)
+	
+	reTags := regexp.MustCompile(`(?i)</?(strong|b|span|mark|em|i)[^>]*>`)
+	cleanHTML := reTags.ReplaceAllString(htmlStr, "")
+	
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(cleanHTML))
 	if err != nil {
 		return "", "", err
 	}

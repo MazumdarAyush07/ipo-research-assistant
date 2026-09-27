@@ -52,7 +52,7 @@ export default async function IPODetails({ params }: { params: { id: string } })
         
         <div className="flex items-center gap-3">
           <a 
-            href={`http://localhost:8080/api/ipos/${ipo.id}/report`}
+            href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api"}/ipos/${ipo.id}/report`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 hover:shadow-[0_0_20px_rgba(79,70,229,0.3)]"

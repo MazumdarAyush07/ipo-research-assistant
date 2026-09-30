@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -87,7 +88,7 @@ func (s *PeerService) refreshYahooAuth(ctx context.Context) error {
 	defer resp2.Body.Close()
 	
 	crumbBytes, _ := io.ReadAll(resp2.Body)
-	s.crumb = string(crumbBytes)
+	s.crumb = strings.TrimSpace(string(crumbBytes))
 	
 	return nil
 }
@@ -126,8 +127,11 @@ func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerDat
 	}
 
 	// Fetch from Yahoo Finance
-	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", ticker, s.crumb)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", strings.TrimSpace(ticker), strings.TrimSpace(s.crumb))
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return PeerData{}, fmt.Errorf("failed to create request: %w", err)
+	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
 	
 	s.authMutex.Lock()

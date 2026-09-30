@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -86,6 +87,10 @@ func (s *PeerService) refreshYahooAuth(ctx context.Context) error {
 		return err
 	}
 	defer resp2.Body.Close()
+
+	if resp2.StatusCode != 200 {
+		return fmt.Errorf("getcrumb returned status %d", resp2.StatusCode)
+	}
 	
 	crumbBytes, _ := io.ReadAll(resp2.Body)
 	s.crumb = strings.TrimSpace(string(crumbBytes))
@@ -127,7 +132,7 @@ func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerDat
 	}
 
 	// Fetch from Yahoo Finance
-	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", strings.TrimSpace(ticker), strings.TrimSpace(s.crumb))
+	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", url.QueryEscape(strings.TrimSpace(ticker)), url.QueryEscape(strings.TrimSpace(s.crumb)))
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return PeerData{}, fmt.Errorf("failed to create request: %w", err)
@@ -147,7 +152,7 @@ func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerDat
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+	if resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 400 {
 		// Retry once after refreshing auth
 		_ = s.refreshYahooAuth(ctx)
 		return s.fetchPeerDataRetry(ctx, ticker)
@@ -162,8 +167,11 @@ func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerDat
 
 func (s *PeerService) fetchPeerDataRetry(ctx context.Context, ticker string) (PeerData, error) {
 	cacheKey := fmt.Sprintf("cache:peers:%s", ticker)
-	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", ticker, s.crumb)
-	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", url.QueryEscape(strings.TrimSpace(ticker)), url.QueryEscape(strings.TrimSpace(s.crumb)))
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return PeerData{}, fmt.Errorf("failed to create retry request: %w", err)
+	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
 	
 	s.authMutex.Lock()

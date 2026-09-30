@@ -79,7 +79,7 @@ To feed the scoring engine, you need the latest market sentiment and valuation d
 1. Navigate to the **Trackers & Sync** section.
 2. Click **Run Tracker Audit** to identify IPOs missing GMP, Subscription, or Valuation data.
 3. Click **Track GMP/Subs/Valuations** to batch trigger background scraping jobs.
-4. Click **Track Peers** to sync live peer data from Yahoo Finance for active IPOs.
+4. Click **Track Peers** to sync live peer data from Screener.in for active IPOs.
 
 **What happens under the hood:**
 - Uses a fallback AI pipeline to infer the company's sector if it isn't listed.

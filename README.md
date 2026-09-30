@@ -60,7 +60,7 @@ From the Admin UI, you can trigger:
 1. **Automated Ingestion:** Scrape new IPO listings.
 2. **Parsing & Analytics Audit:** Trigger background jobs to download DRHPs 
    and extract financial/risk tables using Gemini.
-3. **Trackers & Sync:** Sync live Peer Valuation data (Yahoo Finance), 
+3. **Trackers & Sync:** Sync live Peer Valuation data (Screener.in), 
    Subscriptions, and Grey Market Premium (GMP).
 4. **Scoring Engine:** Recalculate component scores (Financials, Valuation, 
    Promoters, Industry, Risk) and output a definitive recommendation 

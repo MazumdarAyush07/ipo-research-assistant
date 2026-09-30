@@ -4,18 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/redis/go-redis/v9"
 )
 
+// PeerConfig maps sector names to a list of NSE ticker symbols (without ".NS").
+// For Screener.in, we use the symbol directly (e.g., "TRENT", not "TRENT.NS").
 type PeerConfig map[string][]string
 
 type PeerData struct {
@@ -23,17 +25,12 @@ type PeerData struct {
 	Name      string  `json:"name"`
 	PE        float64 `json:"pe"`
 	PB        float64 `json:"pb"`
-	MarketCap float64 `json:"market_cap"`
+	MarketCap float64 `json:"market_cap"` // in Crores
 }
 
 type PeerService struct {
 	RedisClient *redis.Client
 	Config      PeerConfig
-	
-	// Yahoo Finance Auth
-	crumb       string
-	cookies     []*http.Cookie
-	authMutex   sync.Mutex
 }
 
 func NewPeerService(redisClient *redis.Client, configPath string) (*PeerService, error) {
@@ -48,68 +45,10 @@ func NewPeerService(redisClient *redis.Client, configPath string) (*PeerService,
 		return nil, fmt.Errorf("could not decode peers config: %w", err)
 	}
 
-	ps := &PeerService{
+	return &PeerService{
 		RedisClient: redisClient,
 		Config:      config,
-	}
-	
-	// Initialize Yahoo Auth
-	_ = ps.refreshYahooAuth(context.Background())
-
-	return ps, nil
-}
-
-func setHeaders(req *http.Request) {
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Connection", "keep-alive")
-}
-
-func (s *PeerService) refreshYahooAuth(ctx context.Context) error {
-	s.authMutex.Lock()
-	defer s.authMutex.Unlock()
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	
-	// 1. Get cookies from fc.yahoo.com
-	req1, _ := http.NewRequestWithContext(ctx, "GET", "https://fc.yahoo.com", nil)
-	setHeaders(req1)
-	resp1, err := client.Do(req1)
-	if err != nil {
-		return err
-	}
-	defer resp1.Body.Close()
-	s.cookies = resp1.Cookies()
-
-	// 2. Get crumb from getcrumb
-	// Use a new client for getcrumb so it can follow redirects if needed
-	client2 := &http.Client{Timeout: 10 * time.Second}
-	req2, _ := http.NewRequestWithContext(ctx, "GET", "https://query1.finance.yahoo.com/v1/test/getcrumb", nil)
-	setHeaders(req2)
-	for _, c := range s.cookies {
-		req2.AddCookie(c)
-	}
-	
-	resp2, err := client2.Do(req2)
-	if err != nil {
-		return err
-	}
-	defer resp2.Body.Close()
-
-	if resp2.StatusCode != 200 {
-		return fmt.Errorf("getcrumb returned status %d", resp2.StatusCode)
-	}
-	
-	crumbBytes, _ := io.ReadAll(resp2.Body)
-	s.crumb = strings.TrimSpace(string(crumbBytes))
-	
-	return nil
+	}, nil
 }
 
 func (s *PeerService) FetchPeersForSector(ctx context.Context, sector string) ([]PeerData, error) {
@@ -126,15 +65,19 @@ func (s *PeerService) FetchPeersForSector(ctx context.Context, sector string) ([
 			continue
 		}
 		results = append(results, data)
+		// Polite delay to avoid hammering screener.in
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	return results, nil
 }
 
 func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerData, error) {
-	cacheKey := fmt.Sprintf("cache:peers:%s", ticker)
-	
-	// Check Redis Cache
+	// Strip ".NS" suffix if present (config might have either format)
+	cleanTicker := strings.TrimSuffix(strings.TrimSpace(ticker), ".NS")
+	cacheKey := fmt.Sprintf("cache:peers:%s", cleanTicker)
+
+	// Check Redis Cache first
 	if s.RedisClient != nil {
 		cachedData, err := s.RedisClient.Get(ctx, cacheKey).Result()
 		if err == nil {
@@ -145,101 +88,10 @@ func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerDat
 		}
 	}
 
-	// Fetch from Yahoo Finance
-	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", url.QueryEscape(strings.TrimSpace(ticker)), url.QueryEscape(strings.TrimSpace(s.crumb)))
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	// Fetch from Screener.in
+	pd, err := scrapeScreenerIn(ctx, cleanTicker)
 	if err != nil {
-		return PeerData{}, fmt.Errorf("failed to create request: %w", err)
-	}
-	setHeaders(req)
-	
-	s.authMutex.Lock()
-	for _, c := range s.cookies {
-		req.AddCookie(c)
-	}
-	s.authMutex.Unlock()
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return PeerData{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 400 {
-		// Retry once after refreshing auth
-		errAuth := s.refreshYahooAuth(ctx)
-		if errAuth != nil {
-			log.Printf("Failed to refresh Yahoo auth: %v", errAuth)
-		}
-		return s.fetchPeerDataRetry(ctx, ticker)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return PeerData{}, fmt.Errorf("yahoo finance returned status %d", resp.StatusCode)
-	}
-
-	return s.parseYahooResponse(ctx, resp.Body, ticker, cacheKey)
-}
-
-func (s *PeerService) fetchPeerDataRetry(ctx context.Context, ticker string) (PeerData, error) {
-	cacheKey := fmt.Sprintf("cache:peers:%s", ticker)
-	url := fmt.Sprintf("https://query1.finance.yahoo.com/v7/finance/quote?symbols=%s&crumb=%s", url.QueryEscape(strings.TrimSpace(ticker)), url.QueryEscape(strings.TrimSpace(s.crumb)))
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return PeerData{}, fmt.Errorf("failed to create retry request: %w", err)
-	}
-	setHeaders(req)
-	
-	s.authMutex.Lock()
-	for _, c := range s.cookies {
-		req.AddCookie(c)
-	}
-	s.authMutex.Unlock()
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return PeerData{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return PeerData{}, fmt.Errorf("yahoo finance retry returned status %d", resp.StatusCode)
-	}
-	
-	return s.parseYahooResponse(ctx, resp.Body, ticker, cacheKey)
-}
-
-func (s *PeerService) parseYahooResponse(ctx context.Context, bodyReader io.Reader, ticker, cacheKey string) (PeerData, error) {
-	body, _ := io.ReadAll(bodyReader)
-	
-	var yfResp struct {
-		QuoteResponse struct {
-			Result []struct {
-				ShortName  string  `json:"shortName"`
-				TrailingPE float64 `json:"trailingPE"`
-				PriceToBook float64 `json:"priceToBook"`
-				MarketCap   float64 `json:"marketCap"`
-			} `json:"result"`
-		} `json:"quoteResponse"`
-	}
-
-	if err := json.Unmarshal(body, &yfResp); err != nil {
-		return PeerData{}, err
-	}
-
-	if len(yfResp.QuoteResponse.Result) == 0 {
-		return PeerData{}, fmt.Errorf("no quote data returned for %s", ticker)
-	}
-
-	res := yfResp.QuoteResponse.Result[0]
-	pd := PeerData{
-		Ticker:    ticker,
-		Name:      res.ShortName,
-		PE:        res.TrailingPE,
-		PB:        res.PriceToBook,
-		MarketCap: res.MarketCap,
+		return PeerData{}, fmt.Errorf("screener.in scrape failed for %s: %w", cleanTicker, err)
 	}
 
 	// Cache in Redis for 24 hours
@@ -249,4 +101,109 @@ func (s *PeerService) parseYahooResponse(ctx context.Context, bodyReader io.Read
 	}
 
 	return pd, nil
+}
+
+// scrapeScreenerIn scrapes PE, Market Cap, and Book Value from screener.in for a given NSE symbol.
+func scrapeScreenerIn(ctx context.Context, symbol string) (PeerData, error) {
+	url := fmt.Sprintf("https://www.screener.in/company/%s/", symbol)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return PeerData{}, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Referer", "https://www.google.com/")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return PeerData{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return PeerData{}, fmt.Errorf("screener.in returned status %d for %s", resp.StatusCode, symbol)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return PeerData{}, err
+	}
+
+	pd := PeerData{Ticker: symbol}
+
+	// Extract company name from <h1> or <title>
+	pd.Name = strings.TrimSpace(doc.Find("h1").First().Text())
+	if pd.Name == "" {
+		title := doc.Find("title").Text()
+		if idx := strings.Index(title, "|"); idx > 0 {
+			pd.Name = strings.TrimSpace(title[:idx])
+		}
+	}
+
+	// Parse the top-ratios section
+	doc.Find("#top-ratios li").Each(func(i int, sel *goquery.Selection) {
+		label := cleanText(sel.Find("span.name").Text())
+		value := cleanText(sel.Find("span.nowrap").Text())
+		if value == "" {
+			// fallback: last span child
+			sel.Find("span").Each(func(j int, sp *goquery.Selection) {
+				v := cleanText(sp.Text())
+				if v != "" {
+					value = v
+				}
+			})
+		}
+
+		switch {
+		case strings.Contains(label, "Market Cap"):
+			pd.MarketCap = parseIndianNumber(value)
+		case strings.EqualFold(label, "Stock P/E"):
+			pd.PE = parseFloat(value)
+		case strings.Contains(label, "Book Value"):
+			// PB = Current Price / Book Value — we store book value, frontend can compute PB
+			// For now store as PB field with approximate ratio using price if available
+			pd.PB = parseFloat(value)
+		}
+	})
+
+	if pd.PE == 0 && pd.MarketCap == 0 {
+		return PeerData{}, fmt.Errorf("no data parsed from screener.in for %s", symbol)
+	}
+
+	return pd, nil
+}
+
+var spaceRegex = regexp.MustCompile(`\s+`)
+
+func cleanText(s string) string {
+	s = spaceRegex.ReplaceAllString(strings.TrimSpace(s), " ")
+	// Remove currency symbols
+	s = strings.ReplaceAll(s, "₹", "")
+	s = strings.ReplaceAll(s, "%", "")
+	s = strings.TrimSpace(s)
+	return s
+}
+
+// parseIndianNumber handles values like "1,39,316" (Crores) → 139316.0
+func parseIndianNumber(s string) float64 {
+	s = strings.ReplaceAll(s, ",", "")
+	s = strings.ReplaceAll(s, "Cr.", "")
+	s = strings.ReplaceAll(s, "Cr", "")
+	s = strings.TrimSpace(s)
+	val, _ := strconv.ParseFloat(s, 64)
+	return val
+}
+
+func parseFloat(s string) float64 {
+	s = strings.ReplaceAll(s, ",", "")
+	val, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return val
+}
+
+func (s *PeerService) parseYahooResponse(ctx context.Context, _ interface{}, ticker, cacheKey string) (PeerData, error) {
+	// Kept for interface compatibility — not used anymore
+	return PeerData{}, fmt.Errorf("not implemented")
 }

@@ -29,7 +29,11 @@ func FetchSubscriptionData(ctx context.Context, sourceUrl string) (*Subscription
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -48,16 +52,20 @@ func FetchSubscriptionData(ctx context.Context, sourceUrl string) (*Subscription
 
 	data := &SubscriptionData{}
 
-	// Chittorgarh typically displays subscription in a table where rows contain categories like "QIB", "NII", "Retail"
-	doc.Find("table tbody tr").Each(func(i int, s *goquery.Selection) {
+	// IPOWatch displays subscription in a table where rows contain categories like "QIB", "NII", "Retail"
+	doc.Find("table tr").Each(func(i int, s *goquery.Selection) {
 		cols := s.Find("td")
 		if cols.Length() >= 2 {
 			category := strings.ToLower(cols.Eq(0).Text())
 			valueStr := cols.Eq(1).Text() // usually times subscribed is in the second column or later depending on table
 			
-			// Try to find the specific columns containing the "times"
-			// Usually Chittorgarh subscription table has columns: Category | Subscription Status
-			// So let's extract the number.
+			// Some IPOWatch tables have "Subscription (times)" in the third column
+			if cols.Length() >= 3 {
+				val2 := strings.ToLower(cols.Eq(1).Text())
+				if strings.Contains(val2, "shares") || strings.Contains(val2, "crores") || val2 == "-" {
+					valueStr = cols.Eq(2).Text()
+				}
+			}
 			val := parseTimesSubscribed(valueStr)
 
 			if strings.Contains(category, "qualified") || strings.Contains(category, "qib") {

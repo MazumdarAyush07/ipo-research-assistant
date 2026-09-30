@@ -59,15 +59,27 @@ func NewPeerService(redisClient *redis.Client, configPath string) (*PeerService,
 	return ps, nil
 }
 
+func setHeaders(req *http.Request) {
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Connection", "keep-alive")
+}
+
 func (s *PeerService) refreshYahooAuth(ctx context.Context) error {
 	s.authMutex.Lock()
 	defer s.authMutex.Unlock()
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 	
 	// 1. Get cookies from fc.yahoo.com
 	req1, _ := http.NewRequestWithContext(ctx, "GET", "https://fc.yahoo.com", nil)
-	req1.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+	setHeaders(req1)
 	resp1, err := client.Do(req1)
 	if err != nil {
 		return err
@@ -76,13 +88,15 @@ func (s *PeerService) refreshYahooAuth(ctx context.Context) error {
 	s.cookies = resp1.Cookies()
 
 	// 2. Get crumb from getcrumb
+	// Use a new client for getcrumb so it can follow redirects if needed
+	client2 := &http.Client{Timeout: 10 * time.Second}
 	req2, _ := http.NewRequestWithContext(ctx, "GET", "https://query1.finance.yahoo.com/v1/test/getcrumb", nil)
-	req2.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+	setHeaders(req2)
 	for _, c := range s.cookies {
 		req2.AddCookie(c)
 	}
 	
-	resp2, err := client.Do(req2)
+	resp2, err := client2.Do(req2)
 	if err != nil {
 		return err
 	}
@@ -137,7 +151,7 @@ func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerDat
 	if err != nil {
 		return PeerData{}, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+	setHeaders(req)
 	
 	s.authMutex.Lock()
 	for _, c := range s.cookies {
@@ -154,7 +168,10 @@ func (s *PeerService) fetchPeerData(ctx context.Context, ticker string) (PeerDat
 
 	if resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 400 {
 		// Retry once after refreshing auth
-		_ = s.refreshYahooAuth(ctx)
+		errAuth := s.refreshYahooAuth(ctx)
+		if errAuth != nil {
+			log.Printf("Failed to refresh Yahoo auth: %v", errAuth)
+		}
 		return s.fetchPeerDataRetry(ctx, ticker)
 	}
 
@@ -172,7 +189,7 @@ func (s *PeerService) fetchPeerDataRetry(ctx context.Context, ticker string) (Pe
 	if err != nil {
 		return PeerData{}, fmt.Errorf("failed to create retry request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+	setHeaders(req)
 	
 	s.authMutex.Lock()
 	for _, c := range s.cookies {

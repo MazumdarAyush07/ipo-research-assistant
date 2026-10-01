@@ -103,23 +103,25 @@ type Report struct {
 }
 
 type Score struct {
-	ID                int64
-	IpoID             int64
-	FinancialsScore   sql.NullString
-	FinancialsReason  sql.NullString
-	ValuationScore    sql.NullString
-	ValuationReason   sql.NullString
-	PromoterScore     sql.NullString
-	PromoterReason    sql.NullString
-	IndustryScore     sql.NullString
-	IndustryReason    sql.NullString
-	RiskScore         sql.NullString
-	RiskReason        sql.NullString
-	SubscriptionScore sql.NullString
-	GmpScore          sql.NullString
-	FinalScore        sql.NullString
-	Recommendation    sql.NullString
-	ScoredAt          sql.NullTime
+	ID                   int64
+	IpoID                int64
+	FinancialsScore      sql.NullString
+	FinancialsReason     sql.NullString
+	ValuationScore       sql.NullString
+	ValuationReason      sql.NullString
+	PromoterScore        sql.NullString
+	PromoterReason       sql.NullString
+	IndustryScore        sql.NullString
+	IndustryReason       sql.NullString
+	RiskScore            sql.NullString
+	RiskReason           sql.NullString
+	SubscriptionScore    sql.NullString
+	SubscriptionReason   sql.NullString
+	GmpScore             sql.NullString
+	GmpReason            sql.NullString
+	FinalScore           sql.NullString
+	Recommendation       sql.NullString
+	ScoredAt             sql.NullTime
 }
 
 type SubscriptionDatum struct {

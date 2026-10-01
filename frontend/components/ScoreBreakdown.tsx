@@ -53,7 +53,9 @@ export default function ScoreBreakdown({ score }: { score: Score | null }) {
         <ScoreCard title="Promoter" score={score.PromoterScore} max={10} reason={score.PromoterReason} />
         <ScoreCard title="Industry" score={score.IndustryScore} max={10} reason={score.IndustryReason} />
         <ScoreCard title="Risk" score={score.RiskScore} max={10} reason={score.RiskReason} />
-        <ScoreCard title="Market Demand" score={score.SubscriptionScore + score.GmpScore} max={10} reason="Combined Subscription & GMP outlook." />
+        <ScoreCard title="Market Demand" score={score.SubscriptionScore + score.GmpScore} max={10} reason={
+          [score.SubscriptionReason, score.GmpReason].filter(Boolean).join(" ") || "Combined Subscription & GMP outlook."
+        } />
       </div>
     </div>
   );

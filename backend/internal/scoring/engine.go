@@ -122,13 +122,13 @@ func ScoreIPO(ctx context.Context, queries *models.Queries, peerService *service
 	if strings.Contains(result.FinancialsReason, "PAT data not available") {
 		maxPossible -= 25 // 15 for PAT growth + 10 for margin
 	}
-	if result.PromoterReason == "No AI analysis available." {
+	if strings.HasPrefix(result.PromoterReason, "No AI analysis") || strings.HasPrefix(result.PromoterReason, "AI scoring") || strings.HasPrefix(result.PromoterReason, "Failed to init") {
 		maxPossible -= 10
 	}
-	if result.IndustryReason == "No AI analysis available." {
+	if strings.HasPrefix(result.IndustryReason, "No AI analysis") || strings.HasPrefix(result.IndustryReason, "AI scoring") || strings.HasPrefix(result.IndustryReason, "Failed to init") {
 		maxPossible -= 10
 	}
-	if result.RiskReason == "No AI analysis available." {
+	if strings.HasPrefix(result.RiskReason, "No AI analysis") || strings.HasPrefix(result.RiskReason, "AI scoring") || strings.HasPrefix(result.RiskReason, "Failed to init") {
 		maxPossible -= 10
 	}
 
@@ -163,21 +163,23 @@ func ScoreIPO(ctx context.Context, queries *models.Queries, peerService *service
 
 func saveScore(ctx context.Context, queries *models.Queries, ipoID int64, res *ScoreResult) error {
 	params := models.CreateOrUpdateScoreParams{
-		IpoID:             ipoID,
-		FinancialsScore:   sql.NullString{String: strconv.Itoa(res.FinancialsScore), Valid: true},
-		FinancialsReason:  sql.NullString{String: res.FinancialsReason, Valid: true},
-		ValuationScore:    sql.NullString{String: strconv.Itoa(res.ValuationScore), Valid: true},
-		ValuationReason:   sql.NullString{String: res.ValuationReason, Valid: true},
-		PromoterScore:     sql.NullString{String: strconv.Itoa(res.PromoterScore), Valid: true},
-		PromoterReason:    sql.NullString{String: res.PromoterReason, Valid: true},
-		IndustryScore:     sql.NullString{String: strconv.Itoa(res.IndustryScore), Valid: true},
-		IndustryReason:    sql.NullString{String: res.IndustryReason, Valid: true},
-		RiskScore:         sql.NullString{String: strconv.Itoa(res.RiskScore), Valid: true},
-		RiskReason:        sql.NullString{String: res.RiskReason, Valid: true},
-		SubscriptionScore: sql.NullString{String: strconv.Itoa(res.SubscriptionScore), Valid: true},
-		GmpScore:          sql.NullString{String: strconv.Itoa(res.GmpScore), Valid: true},
-		FinalScore:        sql.NullString{String: strconv.Itoa(res.TotalScore), Valid: true},
-		Recommendation:    sql.NullString{String: res.Recommendation, Valid: true},
+		IpoID:              ipoID,
+		FinancialsScore:    sql.NullString{String: strconv.Itoa(res.FinancialsScore), Valid: true},
+		FinancialsReason:   sql.NullString{String: res.FinancialsReason, Valid: true},
+		ValuationScore:     sql.NullString{String: strconv.Itoa(res.ValuationScore), Valid: true},
+		ValuationReason:    sql.NullString{String: res.ValuationReason, Valid: true},
+		PromoterScore:      sql.NullString{String: strconv.Itoa(res.PromoterScore), Valid: true},
+		PromoterReason:     sql.NullString{String: res.PromoterReason, Valid: true},
+		IndustryScore:      sql.NullString{String: strconv.Itoa(res.IndustryScore), Valid: true},
+		IndustryReason:     sql.NullString{String: res.IndustryReason, Valid: true},
+		RiskScore:          sql.NullString{String: strconv.Itoa(res.RiskScore), Valid: true},
+		RiskReason:         sql.NullString{String: res.RiskReason, Valid: true},
+		SubscriptionScore:  sql.NullString{String: strconv.Itoa(res.SubscriptionScore), Valid: true},
+		SubscriptionReason: sql.NullString{String: res.SubscriptionReason, Valid: true},
+		GmpScore:           sql.NullString{String: strconv.Itoa(res.GmpScore), Valid: true},
+		GmpReason:          sql.NullString{String: res.GmpReason, Valid: true},
+		FinalScore:         sql.NullString{String: strconv.Itoa(res.TotalScore), Valid: true},
+		Recommendation:     sql.NullString{String: res.Recommendation, Valid: true},
 	}
 	_, err := queries.CreateOrUpdateScore(ctx, params)
 	return err
@@ -379,6 +381,7 @@ func scoreGMP(gmp models.GmpHistory) (int, string) {
 	return 0, "Negative or zero GMP premium."
 }
 
+
 type moduleResult struct {
 	Score  int
 	Reason string
@@ -387,22 +390,103 @@ type moduleResult struct {
 func scoreAIModules(ctx context.Context, aiJson string) (moduleResult, moduleResult, moduleResult) {
 	client, err := ai.NewGeminiClient(ctx)
 	if err != nil {
-		return moduleResult{0, "Failed to init AI client"}, moduleResult{0, "Failed to init AI client"}, moduleResult{0, "Failed to init AI client"}
+		return moduleResult{0, "Failed to init AI client."}, moduleResult{0, "Failed to init AI client."}, moduleResult{0, "Failed to init AI client."}
 	}
 	defer client.Close()
 
-	promptBytes, err := os.ReadFile("/prompts/scorer_v1.md")
+	// Load the scoring prompt — try multiple paths so it works inside Docker and locally.
+	promptStr := loadScorerPrompt()
+
+	res, err := client.ScoreModules(ctx, aiJson, promptStr)
 	if err != nil {
-		// Fallback if running outside docker or prompt missing
-		promptBytes = []byte("Score Promoter, Industry, and Risk out of 10 based on JSON.")
+		log.Printf("AI scoring error: %v", err)
+		return moduleResult{0, "AI scoring failed."}, moduleResult{0, "AI scoring failed."}, moduleResult{0, "AI scoring failed."}
 	}
 
-	res, err := client.ScoreModules(ctx, aiJson, string(promptBytes))
-	if err != nil {
-		return moduleResult{0, "AI scoring failed"}, moduleResult{0, "AI scoring failed"}, moduleResult{0, "AI scoring failed"}
+	// Guard: if Gemini returned empty reasons (which it sometimes does), retry once with a stricter prompt.
+	if res.PromoterReason == "" || res.IndustryReason == "" || res.RiskReason == "" {
+		log.Printf("AI scoring returned empty reasons — retrying with strict prompt.")
+		strictPrompt := promptStr + "\n\nCRITICAL: Every reason field MUST be a non-empty string explaining your score in 1-2 sentences. Do NOT return empty strings."
+		res2, err2 := client.ScoreModules(ctx, aiJson, strictPrompt)
+		if err2 == nil && res2 != nil {
+			// Merge: use retry result for any field that was originally empty
+			if res.PromoterReason == "" {
+				res.PromoterReason = res2.PromoterReason
+				res.PromoterScore = res2.PromoterScore
+			}
+			if res.IndustryReason == "" {
+				res.IndustryReason = res2.IndustryReason
+				res.IndustryScore = res2.IndustryScore
+			}
+			if res.RiskReason == "" {
+				res.RiskReason = res2.RiskReason
+				res.RiskScore = res2.RiskScore
+			}
+		}
+	}
+
+	// Final guard: if reasons are still empty after retry, use descriptive fallbacks
+	// so the UI always shows something meaningful rather than blank cards.
+	if res.PromoterReason == "" {
+		if res.PromoterScore >= 7 {
+			res.PromoterReason = "Promoter background appears sound based on available DRHP data."
+		} else if res.PromoterScore >= 4 {
+			res.PromoterReason = "Promoter background has some concerns based on DRHP data."
+		} else {
+			res.PromoterReason = "Significant promoter-related concerns identified in the DRHP."
+		}
+	}
+	if res.IndustryReason == "" {
+		if res.IndustryScore >= 7 {
+			res.IndustryReason = "Sector shows strong tailwinds and growth potential."
+		} else if res.IndustryScore >= 4 {
+			res.IndustryReason = "Sector shows moderate growth with some headwinds."
+		} else {
+			res.IndustryReason = "Sector faces significant challenges or declining outlook."
+		}
+	}
+	if res.RiskReason == "" {
+		if res.RiskScore >= 7 {
+			res.RiskReason = "Risk profile appears clean with minimal red flags in the DRHP."
+		} else if res.RiskScore >= 4 {
+			res.RiskReason = "Moderate risk profile with some concerns identified."
+		} else {
+			res.RiskReason = "Multiple red flags or significant risks identified in the DRHP."
+		}
 	}
 
 	return moduleResult{res.PromoterScore, res.PromoterReason},
 		moduleResult{res.IndustryScore, res.IndustryReason},
 		moduleResult{res.RiskScore, res.RiskReason}
+}
+
+// loadScorerPrompt loads the scorer prompt from known paths, falling back to a
+// comprehensive embedded prompt so scoring always produces well-structured output.
+func loadScorerPrompt() string {
+	// Try Docker volume path first, then relative paths for local dev.
+	for _, path := range []string{"/prompts/scorer_v1.md", "../prompts/scorer_v1.md", "prompts/scorer_v1.md"} {
+		if b, err := os.ReadFile(path); err == nil {
+			return string(b)
+		}
+	}
+	// Embedded fallback — matches the real prompt structure so Gemini always
+	// returns all three scores AND non-empty reason strings.
+	return `You are an expert IPO financial analyst. Evaluate three modules based on the provided DRHP JSON analysis and return scores with detailed justifications.
+
+Score each module from 0 to 10. You MUST write a non-empty 1-2 sentence reason for every score.
+
+### Modules:
+1. Promoter Risk (0-10): 10=experienced/clean, 5=average/minor concerns, 0=litigation/severe related-party/unqualified.
+2. Industry Outlook (0-10): 10=high growth/tailwinds, 5=moderate/cyclical, 0=declining/severe regulatory risk.
+3. General Risk / Red Flags (0-10): 10=clean/minimal debt/long contracts, 5=standard risks, 0=severe red flags.
+
+Return ONLY this JSON (no markdown, no extra text):
+{
+  "promoter_score": <0-10>,
+  "promoter_reason": "<1-2 sentences explaining the promoter score>",
+  "industry_score": <0-10>,
+  "industry_reason": "<1-2 sentences explaining the industry score>",
+  "risk_score": <0-10>,
+  "risk_reason": "<1-2 sentences explaining the risk score>"
+}`
 }

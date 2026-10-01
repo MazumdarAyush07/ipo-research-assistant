@@ -29,13 +29,13 @@ INSERT INTO scores (
     promoter_score, promoter_reason,
     industry_score, industry_reason,
     risk_score, risk_reason,
-    subscription_score,
-    gmp_score,
+    subscription_score, subscription_reason,
+    gmp_score, gmp_reason,
     final_score,
     recommendation,
     scored_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP
 )
 ON CONFLICT (ipo_id) DO UPDATE 
 SET financials_score = EXCLUDED.financials_score,
@@ -49,29 +49,33 @@ SET financials_score = EXCLUDED.financials_score,
     risk_score = EXCLUDED.risk_score,
     risk_reason = EXCLUDED.risk_reason,
     subscription_score = EXCLUDED.subscription_score,
+    subscription_reason = EXCLUDED.subscription_reason,
     gmp_score = EXCLUDED.gmp_score,
+    gmp_reason = EXCLUDED.gmp_reason,
     final_score = EXCLUDED.final_score,
     recommendation = EXCLUDED.recommendation,
     scored_at = CURRENT_TIMESTAMP
-RETURNING id, ipo_id, financials_score, financials_reason, valuation_score, valuation_reason, promoter_score, promoter_reason, industry_score, industry_reason, risk_score, risk_reason, subscription_score, gmp_score, final_score, recommendation, scored_at
+RETURNING id, ipo_id, financials_score, financials_reason, valuation_score, valuation_reason, promoter_score, promoter_reason, industry_score, industry_reason, risk_score, risk_reason, subscription_score, subscription_reason, gmp_score, gmp_reason, final_score, recommendation, scored_at
 `
 
 type CreateOrUpdateScoreParams struct {
-	IpoID             int64
-	FinancialsScore   sql.NullString
-	FinancialsReason  sql.NullString
-	ValuationScore    sql.NullString
-	ValuationReason   sql.NullString
-	PromoterScore     sql.NullString
-	PromoterReason    sql.NullString
-	IndustryScore     sql.NullString
-	IndustryReason    sql.NullString
-	RiskScore         sql.NullString
-	RiskReason        sql.NullString
-	SubscriptionScore sql.NullString
-	GmpScore          sql.NullString
-	FinalScore        sql.NullString
-	Recommendation    sql.NullString
+	IpoID                int64
+	FinancialsScore      sql.NullString
+	FinancialsReason     sql.NullString
+	ValuationScore       sql.NullString
+	ValuationReason      sql.NullString
+	PromoterScore        sql.NullString
+	PromoterReason       sql.NullString
+	IndustryScore        sql.NullString
+	IndustryReason       sql.NullString
+	RiskScore            sql.NullString
+	RiskReason           sql.NullString
+	SubscriptionScore    sql.NullString
+	SubscriptionReason   sql.NullString
+	GmpScore             sql.NullString
+	GmpReason            sql.NullString
+	FinalScore           sql.NullString
+	Recommendation       sql.NullString
 }
 
 func (q *Queries) CreateOrUpdateScore(ctx context.Context, arg CreateOrUpdateScoreParams) (Score, error) {
@@ -88,7 +92,9 @@ func (q *Queries) CreateOrUpdateScore(ctx context.Context, arg CreateOrUpdateSco
 		arg.RiskScore,
 		arg.RiskReason,
 		arg.SubscriptionScore,
+		arg.SubscriptionReason,
 		arg.GmpScore,
+		arg.GmpReason,
 		arg.FinalScore,
 		arg.Recommendation,
 	)
@@ -107,7 +113,9 @@ func (q *Queries) CreateOrUpdateScore(ctx context.Context, arg CreateOrUpdateSco
 		&i.RiskScore,
 		&i.RiskReason,
 		&i.SubscriptionScore,
+		&i.SubscriptionReason,
 		&i.GmpScore,
+		&i.GmpReason,
 		&i.FinalScore,
 		&i.Recommendation,
 		&i.ScoredAt,
@@ -116,7 +124,7 @@ func (q *Queries) CreateOrUpdateScore(ctx context.Context, arg CreateOrUpdateSco
 }
 
 const getScoreByIPO = `-- name: GetScoreByIPO :one
-SELECT id, ipo_id, financials_score, financials_reason, valuation_score, valuation_reason, promoter_score, promoter_reason, industry_score, industry_reason, risk_score, risk_reason, subscription_score, gmp_score, final_score, recommendation, scored_at FROM scores
+SELECT id, ipo_id, financials_score, financials_reason, valuation_score, valuation_reason, promoter_score, promoter_reason, industry_score, industry_reason, risk_score, risk_reason, subscription_score, subscription_reason, gmp_score, gmp_reason, final_score, recommendation, scored_at FROM scores
 WHERE ipo_id = $1 LIMIT 1
 `
 
@@ -137,7 +145,9 @@ func (q *Queries) GetScoreByIPO(ctx context.Context, ipoID int64) (Score, error)
 		&i.RiskScore,
 		&i.RiskReason,
 		&i.SubscriptionScore,
+		&i.SubscriptionReason,
 		&i.GmpScore,
+		&i.GmpReason,
 		&i.FinalScore,
 		&i.Recommendation,
 		&i.ScoredAt,

@@ -6,13 +6,13 @@ INSERT INTO scores (
     promoter_score, promoter_reason,
     industry_score, industry_reason,
     risk_score, risk_reason,
-    subscription_score,
-    gmp_score,
+    subscription_score, subscription_reason,
+    gmp_score, gmp_reason,
     final_score,
     recommendation,
     scored_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP
 )
 ON CONFLICT (ipo_id) DO UPDATE 
 SET financials_score = EXCLUDED.financials_score,
@@ -26,7 +26,9 @@ SET financials_score = EXCLUDED.financials_score,
     risk_score = EXCLUDED.risk_score,
     risk_reason = EXCLUDED.risk_reason,
     subscription_score = EXCLUDED.subscription_score,
+    subscription_reason = EXCLUDED.subscription_reason,
     gmp_score = EXCLUDED.gmp_score,
+    gmp_reason = EXCLUDED.gmp_reason,
     final_score = EXCLUDED.final_score,
     recommendation = EXCLUDED.recommendation,
     scored_at = CURRENT_TIMESTAMP

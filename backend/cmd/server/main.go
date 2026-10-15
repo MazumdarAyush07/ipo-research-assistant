@@ -143,6 +143,7 @@ func main() {
 	app.Get("/api/admin/scoring-audit", ipoHandler.GetScoringAudit)
 	app.Get("/api/admin/report-audit", ipoHandler.GetReportAudit)
 	app.Get("/api/admin/queues", ipoHandler.GetQueueStats)
+	app.Post("/api/admin/flush-queue", ipoHandler.FlushQueue)
 
 	port := os.Getenv("PORT")
 	if port == "" {

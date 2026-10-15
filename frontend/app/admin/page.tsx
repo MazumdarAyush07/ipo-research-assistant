@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Terminal, Database, Activity, FileText, CheckCircle2, XCircle, RefreshCw, BarChart2, Brain } from "lucide-react";
+import { Terminal, Database, Activity, FileText, CheckCircle2, XCircle, RefreshCw, BarChart2, Brain, Trash2 } from "lucide-react";
 import { IPO, fetchIPOs } from "@/lib/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -36,6 +36,7 @@ export default function AdminDashboard() {
   
   const [logs, setLogs] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFlushingQueue, setIsFlushingQueue] = useState(false);
 
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
@@ -61,6 +62,26 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error("Failed to fetch queue stats", err);
+    }
+  };
+
+  const flushQueue = async () => {
+    if (!confirm("⚠️ This will delete ALL pending, scheduled, and retry tasks from every queue. Are you sure?")) return;
+    setIsFlushingQueue(true);
+    addLog("Flushing all background queues...");
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/flush-queue`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        addLog(`✅ Queue flushed. ${data.total_deleted} task(s) deleted.`);
+        await fetchQueuesOnly();
+      } else {
+        addLog(`❌ Flush failed: ${data.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      addLog(`❌ Flush error: ${err}`);
+    } finally {
+      setIsFlushingQueue(false);
     }
   };
 
@@ -381,6 +402,15 @@ export default function AdminDashboard() {
                     title="Refresh Queue Stats"
                   >
                     <RefreshCw className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={flushQueue}
+                    disabled={isFlushingQueue}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-md transition-colors text-rose-400 hover:text-rose-300 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete all pending & retry tasks from all queues"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {isFlushingQueue ? "Flushing..." : "Flush Queue"}
                   </button>
                 </div>
               </h2>

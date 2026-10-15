@@ -588,3 +588,43 @@ func (h *IPOHandler) GetReportAudit(c *fiber.Ctx) error {
 		"missing_names": missingList,
 	})
 }
+
+// FlushQueue handles POST /api/admin/flush-queue
+// Deletes ALL pending, scheduled, retry and archived tasks from all queues.
+// Use this to emergency-stop all background jobs. Remove after use.
+func (h *IPOHandler) FlushQueue(c *fiber.Ctx) error {
+	queues := []string{"default", "critical", "low"}
+	totalDeleted := 0
+
+	type deleter struct {
+		name string
+		fn   func(string) (int, error)
+	}
+
+	deleters := []deleter{
+		{"pending", h.AsynqInspector.DeleteAllPendingTasks},
+		{"scheduled", h.AsynqInspector.DeleteAllScheduledTasks},
+		{"retry", h.AsynqInspector.DeleteAllRetryTasks},
+		{"archived", h.AsynqInspector.DeleteAllArchivedTasks},
+	}
+
+	for _, q := range queues {
+		for _, d := range deleters {
+			n, err := d.fn(q)
+			if err != nil {
+				log.Printf("FlushQueue: could not delete %s tasks in queue %s: %v", d.name, q, err)
+				continue
+			}
+			if n > 0 {
+				log.Printf("FlushQueue: deleted %d %s tasks from queue %s", n, d.name, q)
+				totalDeleted += n
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"status":        "success",
+		"message":       "All queued tasks have been flushed.",
+		"total_deleted": totalDeleted,
+	})
+}
